@@ -1,16 +1,12 @@
 package com.dirtyredz.householdremote.security
 
-import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 import okhttp3.OkHttpClient
 
-fun certificateDigest(bytes: ByteArray): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") {
-        "%02x".format(it)
-    }
+fun certificateDigest(bytes: ByteArray): String = bytes.inputStream().use(::sha256Hex)
 
 class TvTrust(private val pinned: String?, private val pairing: Boolean) : X509TrustManager {
     @Volatile var observed: String? = null

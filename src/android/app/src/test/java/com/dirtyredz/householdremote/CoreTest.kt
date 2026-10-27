@@ -11,6 +11,7 @@ import com.dirtyredz.householdremote.selfupdate.UpdateContract
 import com.dirtyredz.householdremote.selfupdate.UpdateManifest
 import com.dirtyredz.householdremote.shortcuts.ShortcutProfile
 import com.dirtyredz.householdremote.shortcuts.ShortcutStep
+import com.dirtyredz.householdremote.shortcuts.ShortcutTextCodec
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -138,11 +139,16 @@ class CoreTest {
 
     @Test fun dangerousOrUnboundedShortcutsAreRejected() {
         assertThrows(Exception::class.java) {
-            ShortcutProfile.parse("Netflix", "KEY_HOME 1000\nKEY_POWER 100\nKEY_ENTER 100")
+            ShortcutTextCodec.decode("Netflix", "KEY_HOME 1000\nKEY_POWER 100\nKEY_ENTER 100")
         }
         assertThrows(Exception::class.java) {
-            ShortcutProfile.parse("Plex", "KEY_HOME 99999\nKEY_ENTER 100")
+            ShortcutTextCodec.decode("Plex", "KEY_HOME 99999\nKEY_ENTER 100")
         }
+    }
+
+    @Test fun shortcutTextRoundTripsValidatedSteps() {
+        val text = "KEY_HOME 1000\nKEY_RIGHT 500\nKEY_ENTER 100"
+        assertEquals(text, ShortcutTextCodec.encode(ShortcutTextCodec.decode("Plex", text)))
     }
 
     @Test fun updateRejectsWrongFlavorSignerDowngradeAndHost() {
@@ -163,6 +169,13 @@ class CoreTest {
             artifact,
             UpdateContract.select(manifest(artifact), "remote", artifact.packageName, 1)
         )
+        assertEquals(
+            artifact,
+            UpdateContract.validate(artifact, "remote", artifact.packageName, 1)
+        )
+        assertThrows(Exception::class.java) {
+            UpdateContract.validate(artifact, "owner", artifact.packageName, 1)
+        }
         assertThrows(Exception::class.java) {
             UpdateContract.select(manifest(artifact), "remote", artifact.packageName, 2)
         }

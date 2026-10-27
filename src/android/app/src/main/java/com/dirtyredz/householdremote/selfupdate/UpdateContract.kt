@@ -26,6 +26,16 @@ object UpdateContract {
     ): UpdateArtifact {
         require(manifest.schema == 1 && manifest.artifacts.size == 2) { "Invalid release manifest" }
         val artifact = manifest.artifacts.single { it.flavor == flavor }
+        return validate(artifact, flavor, packageName, current)
+    }
+
+    fun validate(
+        artifact: UpdateArtifact,
+        flavor: String,
+        packageName: String,
+        current: Long
+    ): UpdateArtifact {
+        require(artifact.flavor == flavor) { "Wrong package/flavor" }
         require(artifact.packageName == packageName) { "Wrong package/flavor" }
         require(artifact.versionCode > current && artifact.versionCode <= 2100000000) {
             "No newer version available"

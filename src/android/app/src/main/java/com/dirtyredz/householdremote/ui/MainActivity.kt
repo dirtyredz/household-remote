@@ -1,5 +1,6 @@
 package com.dirtyredz.householdremote.ui
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -45,7 +47,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun RemoteApp(model: RemoteViewModel = viewModel()) {
+fun RemoteApp(providedModel: RemoteViewModel? = null) {
+    val application = LocalContext.current.applicationContext as Application
+    val factory = remember(application) { RemoteViewModelFactory(application) }
+    val model = providedModel ?: viewModel(factory = factory)
     val state by model.state.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {

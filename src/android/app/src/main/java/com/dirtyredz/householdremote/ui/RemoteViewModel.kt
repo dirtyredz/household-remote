@@ -1,26 +1,41 @@
 package com.dirtyredz.householdremote.ui
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dirtyredz.householdremote.discovery.SsdpDiscovery
-import com.dirtyredz.householdremote.discovery.TvInfoClient
+import com.dirtyredz.householdremote.discovery.TvProbe
+import com.dirtyredz.householdremote.inventory.Household
 import com.dirtyredz.householdremote.inventory.HouseholdImport
+import com.dirtyredz.householdremote.inventory.HouseholdRepository
 import com.dirtyredz.householdremote.inventory.Tv
-import com.dirtyredz.householdremote.inventory.TvRepository
-import com.dirtyredz.householdremote.power.WakeOnLan
+import com.dirtyredz.householdremote.power.AwakeClock
+import com.dirtyredz.householdremote.power.TvWake
+import com.dirtyredz.householdremote.power.awaitAwake
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
-import com.dirtyredz.householdremote.security.TokenStore
+import com.dirtyredz.householdremote.security.Credentials
 import com.dirtyredz.householdremote.shortcuts.ShortcutProfile
 import com.dirtyredz.householdremote.shortcuts.ShortcutStore
+import com.dirtyredz.householdremote.shortcuts.ShortcutTextCodec
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
+
+typealias RemoteSessionFactory = (
+    CoroutineScope,
+    Credentials,
+    (String, Boolean) -> Unit,
+    () -> Unit
+) -> RemoteSession
+
+typealias KeyDispatcherFactory = (
+    CoroutineScope,
+    (String) -> Boolean,
+    (String) -> Unit
+) -> KeyDispatcher
 
 data class RemoteState(
     val tvs: List<Tv> = emptyList(),
@@ -31,125 +46,149 @@ data class RemoteState(
     val configured: Set<String> = emptySet()
 )
 
-class RemoteViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = TvRepository(application)
+class RemoteViewModel(
+    private val repository: HouseholdRepository,
+    private val profiles: ShortcutStore,
+    private val probe: TvProbe,
+    private val discovery: SsdpDiscovery,
+    private val wakeSender: TvWake,
+    credentials: Credentials,
+    private val awakeClock: AwakeClock,
+    sessionFactory: RemoteSessionFactory,
+    dispatcherFactory: KeyDispatcherFactory
+) : ViewModel() {
     private var household = repository.load()
-    private val profiles = ShortcutStore(application)
-    private val info = TvInfoClient()
-    private val discovery = SsdpDiscovery(application, info)
-    private val wake = WakeOnLan(application)
     private val mutable = MutableStateFlow(
         RemoteState(
             household.tvs,
-            household.tvs.find {
-                it.id ==
-                    household.selected
-            }
+            household.tvs.find { it.id == household.selected }
         )
     )
     val state = mutable.asStateFlow()
-    private val dispatcher =
-        KeyDispatcher(viewModelScope, { session.send(it) }, { message ->
-            mutable.value =
-                mutable.value.copy(message = message, busy = false)
-        })
-    private val session: RemoteSession =
-        RemoteSession(viewModelScope, TokenStore(application), { message, ready ->
-            mutable.value = mutable.value.copy(message = message, ready = ready, busy = false)
-            if (ready) dispatcher.start()
-        }, { dispatcher.cancel() })
+    private val dispatcher: KeyDispatcher
+    private val session: RemoteSession
     private var operation: Job? = null
     private var foreground = false
+
+    init {
+        session = sessionFactory(
+            viewModelScope,
+            credentials,
+            { message, ready ->
+                mutable.value = mutable.value.copy(message = message, ready = ready, busy = false)
+                if (ready) dispatcher.start()
+            },
+            { dispatcher.cancel() }
+        )
+        dispatcher = dispatcherFactory(
+            viewModelScope,
+            { session.send(it) },
+            { message -> mutable.value = mutable.value.copy(message = message, busy = false) }
+        )
+    }
+
     fun start() {
         foreground = true
         refresh()
         state.value.selected?.let { session.connect(it) }
     }
+
     fun stop() {
         foreground = false
         operation?.cancel()
         session.disconnect()
-        mutable.value =
-            mutable.value.copy(ready = false, busy = false)
+        mutable.value = mutable.value.copy(ready = false, busy = false)
     }
+
     private fun refresh() {
         val selected = household.tvs.find { it.id == household.selected }
-        mutable.value =
-            mutable.value.copy(
-                tvs = household.tvs,
-                selected = selected,
-                configured = ShortcutProfile.apps.filter {
-                    selected !=
-                        null &&
-                        profiles.get(selected.mac, it) != null
-                }.toSet()
-            )
+        mutable.value = mutable.value.copy(
+            tvs = household.tvs,
+            selected = selected,
+            configured = ShortcutProfile.apps.filter {
+                selected != null && profiles.get(selected.mac, it) != null
+            }.toSet()
+        )
     }
-    fun select(tv: Tv) {
-        operation?.cancel()
-        session.disconnect()
-        mutable.value = mutable.value.copy(ready = false, busy = false)
-        household = household.copy(selected = tv.id)
+
+    private fun updateHousehold(update: (Household) -> Household) {
+        household = update(household)
         repository.save(household)
         refresh()
+    }
+
+    private fun disconnectForSelection() {
+        session.disconnect()
+        mutable.value = mutable.value.copy(ready = false, busy = false)
+    }
+
+    fun select(tv: Tv) {
+        operation?.cancel()
+        disconnectForSelection()
+        updateHousehold { it.copy(selected = tv.id) }
         if (foreground) session.connect(tv)
     }
+
     fun connect(pair: Boolean) {
         operation?.cancel()
         if (foreground) state.value.selected?.let { session.connect(it, pair) }
     }
+
     private fun action(block: suspend () -> Unit) {
         operation?.cancel()
         operation = viewModelScope.launch {
             try {
                 block()
-            } catch (
-                error: CancellationException
-            ) {
+            } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutable.value =
-                    mutable.value.copy(message = error.message ?: "Operation failed", busy = false)
+                mutable.value = mutable.value.copy(
+                    message = error.message ?: "Operation failed",
+                    busy = false
+                )
             }
         }
     }
+
     fun discover() = action {
         mutable.value = mutable.value.copy(message = "Discovering TVs…")
         val found = discovery.discover()
-        found.forEach { household = HouseholdImport.merge(household, it) }
-        repository.save(household)
-        refresh()
+        updateHousehold { repository.merge(it, found) }
         mutable.value = mutable.value.copy(message = "Found ${found.size} TV(s)")
     }
+
     fun add(ip: String) = action {
-        val tv = info.probe(ip.trim())
-        household = HouseholdImport.merge(household, tv)
-        repository.save(household)
-        refresh()
-        select(household.tvs.first { it.mac == tv.mac })
+        val tv = probe.probe(ip.trim())
+        disconnectForSelection()
+        updateHousehold { current ->
+            val merged = repository.merge(current, listOf(tv))
+            merged.copy(selected = merged.tvs.first { it.mac == tv.mac }.id)
+        }
+        if (foreground) state.value.selected?.let { session.connect(it) }
     }
+
     fun importManifest(text: String) = action {
         val imported = HouseholdImport.parse(text)
-        imported.tvs.forEach { household = HouseholdImport.merge(household, it) }
-        repository.save(household)
-        refresh()
-        mutable.value =
-            mutable.value.copy(
-                message = "Imported ${imported.tvs.size} TV(s); each phone must pair"
-            )
+        updateHousehold { repository.merge(it, imported.tvs) }
+        mutable.value = mutable.value.copy(
+            message = "Imported ${imported.tvs.size} TV(s); each phone must pair"
+        )
     }
+
     fun tap(key: String) {
         if (!dispatcher.tap(key)) {
-            mutable.value =
-                mutable.value.copy(message = "Input unavailable; connect or cancel sequence")
+            mutable.value = mutable.value.copy(
+                message = "Input unavailable; connect or cancel sequence"
+            )
         }
     }
+
     fun cancelSequence() {
         dispatcher.cancel()
         if (state.value.ready) dispatcher.start()
-        mutable.value =
-            mutable.value.copy(busy = false, message = "Sequence cancelled")
+        mutable.value = mutable.value.copy(busy = false, message = "Sequence cancelled")
     }
+
     fun shortcut(app: String) {
         val tv = state.value.selected ?: return
         val profile = profiles.get(tv.mac, app) ?: return
@@ -157,52 +196,43 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         mutable.value = mutable.value.copy(busy = true, message = "Sending $app sequence…")
         dispatcher.run(profile)
     }
+
     fun profileText(app: String): String = state.value.selected?.let {
         profiles.get(it.mac, app)
-    }?.steps?.joinToString("\n") { "${it.key} ${it.delayMs}" }.orEmpty()
+    }?.let(ShortcutTextCodec::encode).orEmpty()
+
     fun saveProfile(app: String, text: String) = action {
         val tv = state.value.selected ?: return@action
         if (text.isBlank()) {
-            profiles.remove(
-                tv.mac,
-                app
-            )
+            profiles.remove(tv.mac, app)
         } else {
-            profiles.save(tv.mac, ShortcutProfile.parse(app, text))
+            profiles.save(tv.mac, ShortcutTextCodec.decode(app, text))
         }
         refresh()
         mutable.value = mutable.value.copy(message = "Calibration saved locally")
     }
+
     fun wake() = action {
         val tv = state.value.selected ?: return@action
         session.disconnect()
-        mutable.value =
-            mutable.value.copy(ready = false, message = "Wake sent; waiting up to 30 seconds…")
-        wake.wake(tv.mac)
-        val awake = withTimeoutOrNull(30_000) {
-            while (true) {
-                delay(1500)
-                val found = try {
-                    info.probe(tv.ip)
-                } catch (
-                    error: CancellationException
-                ) {
-                    throw error
-                } catch (_: Exception) {
-                    null
-                }
-                if (found?.mac == tv.mac) return@withTimeoutOrNull true
-            }
-        }
-        if (awake == true) {
+        mutable.value = mutable.value.copy(
+            ready = false,
+            message = "Wake sent; waiting up to 30 seconds…"
+        )
+        wakeSender.wake(tv.mac)
+        if (awaitAwake(tv, probe, 30_000, 1_500, awakeClock)) {
+            mutable.value = mutable.value.copy(message = "TV is awake")
             if (foreground) session.connect(tv)
-            return@action
+        } else {
+            mutable.value = mutable.value.copy(
+                message = "TV not ready; check Wi-Fi wake settings"
+            )
         }
-        mutable.value = mutable.value.copy(message = "TV not ready; check Wi-Fi wake settings")
     }
+
     override fun onCleared() {
         session.disconnect()
-        info.close()
+        probe.close()
         super.onCleared()
     }
 }

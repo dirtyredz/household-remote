@@ -13,7 +13,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-class SsdpDiscovery(context: Context, private val info: TvInfoClient) {
+class SsdpDiscovery(context: Context, private val info: TvProbe) {
     private val wifi = context.applicationContext.getSystemService(WifiManager::class.java)
     suspend fun discover(): List<Tv> = withContext(Dispatchers.IO) {
         val lock = wifi.createMulticastLock("household-discovery").apply {

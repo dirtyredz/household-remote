@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
+import com.dirtyredz.householdremote.persistence.writeAtomically
 import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -60,17 +61,7 @@ class TokenStore(context: Context) : Credentials {
         cipher.init(Cipher.ENCRYPT_MODE, key())
         cipher.updateAAD(identity.toByteArray())
         val data = cipher.iv + cipher.doFinal(Json.encodeToString(credential).toByteArray())
-        val target = file(identity)
-        val output = target.startWrite()
-        try {
-            output.write(data)
-            target.finishWrite(output)
-        } catch (
-            error: Exception
-        ) {
-            target.failWrite(output)
-            throw error
-        }
+        writeAtomically(file(identity), data)
     }
 
     @Synchronized override fun remove(identity: String) {

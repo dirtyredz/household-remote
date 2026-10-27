@@ -12,13 +12,20 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
+interface TvProbe : AutoCloseable {
+    suspend fun probe(ip: String): Tv
+    override fun close() {}
+}
+
 class TvInfoClient(
     private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(
         3,
         TimeUnit.SECONDS
     ).followRedirects(false).retryOnConnectionFailure(false).build()
-) {
-    suspend fun probe(ip: String, port: Int = 8001, testLoopback: Boolean = false): Tv =
+) : TvProbe {
+    override suspend fun probe(ip: String): Tv = probe(ip, 8001, false)
+
+    suspend fun probe(ip: String, port: Int, testLoopback: Boolean): Tv =
         withContext(Dispatchers.IO) {
             require(HouseholdImport.privateIp(ip) || (testLoopback && ip == "127.0.0.1")) {
                 "Use a private LAN IPv4 address"
@@ -49,7 +56,7 @@ class TvInfoClient(
                 if (testLoopback) tv else HouseholdImport.validate(tv)
             }
         }
-    fun close() {
+    override fun close() {
         client.dispatcher.executorService.shutdown()
         client.connectionPool.evictAll()
     }
