@@ -7,3 +7,5 @@ TV information alone uses plaintext HTTP. Pairing uses :8002, samsung.remote.con
 WOL broadcasts a bounded burst on the active Wi-Fi network and polls information before reconnect. Shortcut sequences own input exclusively and cancel on lifecycle/selection change.
 
 Release path: CI builds unsigned APK/AAB and provenance, then drafts a release in this public repository. Attended local signing verifies the CI inputs, replaces unsigned draft assets, checks downloaded bytes and publishes last. The app checks this repository manually, downloads to private cache, validates APK metadata and signer, then opens the system installer.
+
+The `remote` and `owner` product flavors have distinct package IDs but the same v1 remote behavior; `owner` conveys audience only and grants no administration authority. Each published `update.json` has schema 1 and exactly one APK record per flavor, binding flavor, package name, forward-only version code/name, byte size, SHA-256, and the canonical release URL. Selection validates that contract before download; installation additionally requires archive package/version and signer set to match the installed app.

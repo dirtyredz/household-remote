@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'n
 import { join } from 'node:path';
 import { runScript } from '../../../tools/script-run/script-run.mjs';
 import { SOURCE_REPO, flavors, sha256, validateProvenance, verifyBytes } from './contract.mjs';
-import { androidTools, apkIdentity, apkSigner, run, signApk, signBundle } from './android-tools.mjs';
+import { androidTools, run } from './android-tools.mjs';
 import { publishDraft } from './draft.mjs';
+import { assertForwardVersion, buildManifest, signFlavors, verifySource } from './publication.mjs';
 
 await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' }, async log => {
   const [tag, runId] = log.args;
@@ -16,40 +17,22 @@ await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' 
   if (!/^[a-f0-9]{64}$/.test(pin ?? '')) throw new Error('Provision and commit permanent signing fingerprint first');
   const gh = args => run('gh', args, { cwd: log.root });
   const workflow = JSON.parse(gh(['api', `repos/${SOURCE_REPO}/actions/runs/${runId}`]));
-  if (workflow.conclusion !== 'success' || workflow.status !== 'completed' || workflow.event !== 'push' || workflow.path !== '.github/workflows/android-release.yml' || workflow.head_repository.full_name !== SOURCE_REPO) throw new Error('Expected successful source-repo tag-push Android release workflow');
   const commit = gh(['api', `repos/${SOURCE_REPO}/commits/${tag}`, '--jq', '.sha']).trim();
-  if (workflow.head_sha !== commit) throw new Error('CI head does not match tag');
-  // Bind the reviewed signing record and scripts to the exact source release, not an arbitrary local checkout.
-  if (run('git', ['rev-parse', 'HEAD'], { cwd: log.root }).trim() !== commit || run('git', ['status', '--porcelain'], { cwd: log.root }).trim()) throw new Error('Check out the release commit in a clean worktree before signing');
+  const localCommit = run('git', ['rev-parse', 'HEAD'], { cwd: log.root }).trim();
+  const localDirty = run('git', ['status', '--porcelain'], { cwd: log.root }).trim();
+  const sourceRelease = JSON.parse(gh(['release', 'view', tag, '-R', SOURCE_REPO, '--json', 'isDraft,tagName,assets']));
+  verifySource({ workflow, commit, localCommit, localDirty, sourceRelease, tag });
   mkdirSync(join(log.root, '.tmp'), { recursive: true });
   const work = mkdtempSync(join(log.root, '.tmp/release-'));
   const ci = join(work, 'ci'); const draft = join(work, 'draft'); const signed = join(work, 'signed'); const checked = join(work, 'downloaded');
   for (const dir of [ci, draft, signed, checked]) mkdirSync(dir);
   gh(['run', 'download', runId, '-R', SOURCE_REPO, '-n', `unsigned-${tag}`, '-D', ci]);
-  const sourceRelease = JSON.parse(gh(['release', 'view', tag, '-R', SOURCE_REPO, '--json', 'isDraft,tagName,assets']));
-  if (!sourceRelease.isDraft || sourceRelease.tagName !== tag) throw new Error('Unsigned release must still be a draft');
   gh(['release', 'download', tag, '-R', SOURCE_REPO, '-D', draft]);
   const value = validateProvenance(JSON.parse(readFileSync(join(ci, 'unsigned.json'), 'utf8')), { tag, commit, runId });
   if (sha256(join(ci, 'unsigned.json')) !== sha256(join(draft, 'unsigned.json'))) throw new Error('Draft provenance differs from CI artifact');
   verifyBytes(value, ci, join, statSync); verifyBytes(value, draft, join, statSync);
-  const artifacts = [];
-  for (const flavor of flavors) {
-    const source = join(ci, `household-${flavor}-unsigned.apk`);
-    const target = join(signed, `household-${flavor}.apk`);
-    const expectedPackage = `com.dirtyredz.householdremote.${flavor}`;
-    const identity = apkIdentity(tools, source);
-    if (identity.packageName !== expectedPackage || identity.versionCode !== value.versionCode || identity.versionName !== tag.slice(1)) throw new Error('Unsigned APK package/version differs from provenance');
-    let alreadySigned = false;
-    try { apkSigner(tools, source); alreadySigned = true; } catch { /* expected unsigned */ }
-    if (alreadySigned) throw new Error('CI APK is already signed');
-    signApk(tools, source, target, key);
-    if (apkSigner(tools, target) !== pin) throw new Error('Permanent signing fingerprint mismatch');
-    const after = apkIdentity(tools, target);
-    if (JSON.stringify(after) !== JSON.stringify(identity)) throw new Error('Signed APK metadata changed');
-    signBundle(join(ci, `household-${flavor}-unsigned.aab`), join(signed, `household-${flavor}.aab`), key);
-    artifacts.push({ flavor, ...identity, sha256: sha256(target), size: statSync(target).size, url: `https://github.com/${SOURCE_REPO}/releases/download/${tag}/household-${flavor}.apk` });
-  }
-  writeFileSync(join(signed, 'update.json'), JSON.stringify({ schema: 1, artifacts }, null, 2) + '\n');
+  const artifacts = signFlavors({ tools, ci, signed, key, pin, versionCode: value.versionCode, versionName: tag.slice(1) });
+  writeFileSync(join(signed, 'update.json'), JSON.stringify(buildManifest(artifacts), null, 2) + '\n');
   // Public provenance is deliberately only commit/tag and file hashes, with no inventory or 1Password references.
   const names = [...flavors.flatMap(f => [`household-${f}.apk`, `household-${f}.aab`]), 'update.json'];
   writeFileSync(join(signed, 'SHA256SUMS'), names.map(name => `${sha256(join(signed, name))}  ${name}`).join('\n') + '\n');
@@ -63,7 +46,7 @@ await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' 
     const previous = join(work, 'previous'); mkdirSync(previous);
     gh(['release', 'download', published[0].tagName, '-R', SOURCE_REPO, '-p', 'update.json', '-D', previous]);
     const previousManifest = JSON.parse(readFileSync(join(previous, 'update.json'), 'utf8'));
-    if (previousManifest.artifacts.some(artifact => artifact.versionCode >= value.versionCode)) throw new Error('Refusing to publish a non-forward version code');
+    assertForwardVersion(value.versionCode, previousManifest);
   }
   // Mutate only the verified CI draft. Never overwrite a published release or unknown assets.
   const unsignedNames = [...Object.keys(value.files), 'unsigned.json', 'SHA256SUMS'];

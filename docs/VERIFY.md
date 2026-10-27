@@ -8,7 +8,7 @@ $env:TEMP = (Resolve-Path .tmp/test-temp).Path
 $env:TMP = $env:TEMP
 $daemonRegistry = Join-Path (Resolve-Path .tmp).Path 'gradle-daemon'
 .\src\android\gradlew.bat -p src/android --offline --no-daemon "-Dorg.gradle.daemon.registry.base=$daemonRegistry" ktlintCheck testRemoteDebugUnitTest testOwnerDebugUnitTest lintRemoteRelease lintOwnerRelease assembleRemoteDebug assembleOwnerDebug assembleRemoteRelease assembleOwnerRelease bundleRemoteRelease bundleOwnerRelease
-node --test src/household/export.test.mjs src/household/privacy.test.mjs src/android/releases/contract.test.mjs tools/script-run/script-run.test.mjs
+node --test src/household/export.test.mjs src/household/privacy.test.mjs src/android/releases/contract.test.mjs src/android/releases/publication.test.mjs tools/script-run/script-run.test.mjs
 node src/android/icons/generate-icons.mjs --check
 powershell -NoProfile -File scripts/release/signing-smoke.ps1
 dk check
