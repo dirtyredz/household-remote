@@ -1,4 +1,4 @@
-{
-  "certificateSha256": null,
-  "status": "Owner provisioning required; never use the disposable smoke key"
+﻿{
+    "certificateSha256":  "e747ba59c48b941ddb79ab793bfb869b3a43c015ca247fa8a79e51e38c57116a",
+    "status":  "Provisioned; key held in 1Password"
 }
