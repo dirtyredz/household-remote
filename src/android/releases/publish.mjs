@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runScript } from '../../../tools/script-run/script-run.mjs';
-import { SOURCE_REPO, PUBLIC_REPO, flavors, sha256, validateProvenance, verifyBytes } from './contract.mjs';
+import { SOURCE_REPO, flavors, sha256, validateProvenance, verifyBytes } from './contract.mjs';
 import { androidTools, apkIdentity, apkSigner, run, signApk, signBundle } from './android-tools.mjs';
 import { publishDraft } from './draft.mjs';
 
@@ -47,7 +47,7 @@ await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' 
     const after = apkIdentity(tools, target);
     if (JSON.stringify(after) !== JSON.stringify(identity)) throw new Error('Signed APK metadata changed');
     signBundle(join(ci, `household-${flavor}-unsigned.aab`), join(signed, `household-${flavor}.aab`), key);
-    artifacts.push({ flavor, ...identity, sha256: sha256(target), size: statSync(target).size, url: `https://github.com/${PUBLIC_REPO}/releases/download/${tag}/household-${flavor}.apk` });
+    artifacts.push({ flavor, ...identity, sha256: sha256(target), size: statSync(target).size, url: `https://github.com/${SOURCE_REPO}/releases/download/${tag}/household-${flavor}.apk` });
   }
   writeFileSync(join(signed, 'update.json'), JSON.stringify({ schema: 1, artifacts }, null, 2) + '\n');
   // Public provenance is deliberately only commit/tag and file hashes, with no inventory or 1Password references.
@@ -56,18 +56,18 @@ await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' 
   names.push('SHA256SUMS');
   const notes = join(work, 'notes.md');
   writeFileSync(notes, `Household Remote ${tag}\n\nSource commit: ${commit}\n\nManual update; select the flavor already installed. Owner edition has no parent-control features in v1.\n`);
-  const repo = JSON.parse(gh(['repo', 'view', PUBLIC_REPO, '--json', 'visibility']));
+  const repo = JSON.parse(gh(['repo', 'view', SOURCE_REPO, '--json', 'visibility']));
   if (repo.visibility !== 'PUBLIC') throw new Error('The releases repository must be public');
-  const published = JSON.parse(gh(['release', 'list', '-R', PUBLIC_REPO, '--json', 'tagName,isDraft,isPrerelease', '--limit', '100'])).filter(release => !release.isDraft && !release.isPrerelease);
+  const published = JSON.parse(gh(['release', 'list', '-R', SOURCE_REPO, '--json', 'tagName,isDraft,isPrerelease', '--limit', '100'])).filter(release => !release.isDraft && !release.isPrerelease);
   if (published.length) {
     const previous = join(work, 'previous'); mkdirSync(previous);
-    gh(['release', 'download', published[0].tagName, '-R', PUBLIC_REPO, '-p', 'update.json', '-D', previous]);
+    gh(['release', 'download', published[0].tagName, '-R', SOURCE_REPO, '-p', 'update.json', '-D', previous]);
     const previousManifest = JSON.parse(readFileSync(join(previous, 'update.json'), 'utf8'));
     if (previousManifest.artifacts.some(artifact => artifact.versionCode >= value.versionCode)) throw new Error('Refusing to publish a non-forward version code');
   }
   // Mutate only the verified CI draft. Never overwrite a published release or unknown assets.
   const unsignedNames = [...Object.keys(value.files), 'unsigned.json', 'SHA256SUMS'];
-  publishDraft({ gh, repo: PUBLIC_REPO, tag, release: sourceRelease, unsignedNames, names,
+  publishDraft({ gh, repo: SOURCE_REPO, tag, release: sourceRelease, unsignedNames, names,
     signedPath: name => join(signed, name), checkedPath: checked, notes,
     verify: () => {
       for (const name of names) if (sha256(join(signed, name)) !== sha256(join(checked, name))) throw new Error(`Public download verification failed: ${name}`);

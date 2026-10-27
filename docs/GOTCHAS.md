@@ -6,4 +6,6 @@
 - Multicast may be filtered; manual IP is supported. Wake depends on TV/network settings and a usable Wi-Fi broadcast interface.
 - Home-bar positions and delays drift. Recalibrate while watching; cancel immediately if navigation is wrong.
 - No phone is attached during implementation. Keystore, Android installer, multicast permissions, actual TV response and latency need device acceptance.
-- tv-tuneup TV-CONTROL.md still says parents is unpaired while its inventory says paired. This app makes no claim about its own pairing until approved on each phone.
+- Gradle's shared daemon registry crosses worktrees: another checkout's `gradlew --stop` can stop a single-use build here. Wait for other builds and do not issue global daemon stops. The installed SDK command-line tools emit an SDK XML v4/v3 compatibility warning; no SDK download is needed to address app source failures.
+
+- Household inventory belongs only in ignored `config/household.local.json` or `.tmp/`; examples are fictional. The privacy gate rejects the household subnet and non-placeholder 1Password references.

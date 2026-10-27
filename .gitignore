@@ -12,4 +12,5 @@ local.properties
 **/local.properties
 *.jks
 *.p12
+config/household.local.json
 *.keystore

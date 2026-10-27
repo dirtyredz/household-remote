@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SOURCE_REPO, PUBLIC_REPO, flavors, validateProvenance, version, sha256, verifyBytes } from './contract.mjs';
+import { SOURCE_REPO, flavors, validateProvenance, version, sha256, verifyBytes } from './contract.mjs';
 import { publishDraft } from './draft.mjs';
 import { mkdirSync, mkdtempSync, writeFileSync, statSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const expected = { tag: 'v0.1.0', commit: 'a'.repeat(40), runId: '123' };
 test('same-repository draft is published only after downloaded bytes verify', () => {
-  assert.equal(PUBLIC_REPO, SOURCE_REPO);
+  assert.equal(SOURCE_REPO, 'dirtyredz/household-remote');
   const calls = [];
   const input = { gh: args => calls.push(args), repo: SOURCE_REPO, tag: 'v0.1.0',
     release: { isDraft: true, tagName: 'v0.1.0', assets: [{ name: 'unsigned.json' }] },
