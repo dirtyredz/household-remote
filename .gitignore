@@ -4,3 +4,12 @@ build/
 local.properties
 *.keystore
 *.jks
+.docket/
+.tmp/
+**/build/
+**/.gradle/
+**/.kotlin/
+**/local.properties
+*.jks
+*.p12
+*.keystore
