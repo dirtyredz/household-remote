@@ -14,7 +14,7 @@
 ```
 
 - `src/android/`: independent Kotlin/Compose Gradle build; `app/src/main/res/` owns Android resources and `gradle/` owns the pinned catalog and wrapper.
-- `src/android/app/src/main/java/com/dirtyredz/householdremote/`: `inventory` owns JSON inventory and repository merging; `discovery` owns SSDP/REST probes; `security` owns encrypted credentials, digests, and TV certificate trust; `remote` owns foreground sessions and serialized input; `power` owns WOL and identity-checked awake polling; `shortcuts` owns calibrated sequences, persistence, and the steps/text codec; `selfupdate` separates release feeds, verified downloads, package inspection, and installation; `ui` owns Compose/lifecycle and injects the remote controller's collaborators.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/`: `inventory` owns JSON inventory and repository merging; `discovery` owns SSDP/REST probes; `security` owns encrypted credentials, digests, and TV certificate trust; `remote` owns foreground sessions and serialized input; `power` owns WOL and identity-checked awake polling; `shortcuts` owns calibrated sequences, persistence, and the steps/text codec; `selfupdate` separates release feeds, verified downloads, package inspection, and installation; `persistence` owns shared atomic file writes; `ui` owns Compose/lifecycle and injects the remote controller's collaborators.
 - `src/android/app/src/test/`: offline JVM and fake-server tests.
 - `src/android/icons/`: source SVG and deterministic Android vector generator/check.
 - `src/android/releases/`: `.mjs` engines for unsigned staging, provenance, signing, manifest construction, and draft publication.
