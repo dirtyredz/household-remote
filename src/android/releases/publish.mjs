@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { runScript } from '../../../tools/script-run/script-run.mjs';
 import { SOURCE_REPO, PUBLIC_REPO, flavors, sha256, validateProvenance, verifyBytes } from './contract.mjs';
 import { androidTools, apkIdentity, apkSigner, run, signApk, signBundle } from './android-tools.mjs';
+import { publishDraft } from './draft.mjs';
 
 await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' }, async log => {
   const [tag, runId] = log.args;
@@ -25,8 +26,8 @@ await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' 
   const ci = join(work, 'ci'); const draft = join(work, 'draft'); const signed = join(work, 'signed'); const checked = join(work, 'downloaded');
   for (const dir of [ci, draft, signed, checked]) mkdirSync(dir);
   gh(['run', 'download', runId, '-R', SOURCE_REPO, '-n', `unsigned-${tag}`, '-D', ci]);
-  const privateRelease = JSON.parse(gh(['release', 'view', tag, '-R', SOURCE_REPO, '--json', 'isDraft,tagName']));
-  if (!privateRelease.isDraft || privateRelease.tagName !== tag) throw new Error('Private release must still be a draft');
+  const sourceRelease = JSON.parse(gh(['release', 'view', tag, '-R', SOURCE_REPO, '--json', 'isDraft,tagName,assets']));
+  if (!sourceRelease.isDraft || sourceRelease.tagName !== tag) throw new Error('Unsigned release must still be a draft');
   gh(['release', 'download', tag, '-R', SOURCE_REPO, '-D', draft]);
   const value = validateProvenance(JSON.parse(readFileSync(join(ci, 'unsigned.json'), 'utf8')), { tag, commit, runId });
   if (sha256(join(ci, 'unsigned.json')) !== sha256(join(draft, 'unsigned.json'))) throw new Error('Draft provenance differs from CI artifact');
@@ -64,10 +65,12 @@ await runScript({ name: 'publish-release', from: import.meta.url, kind: 'owner' 
     const previousManifest = JSON.parse(readFileSync(join(previous, 'update.json'), 'utf8'));
     if (previousManifest.artifacts.some(artifact => artifact.versionCode >= value.versionCode)) throw new Error('Refusing to publish a non-forward version code');
   }
-  // Existing tags are never overwritten. A failed publish leaves a reviewable draft for the owner.
-  gh(['release', 'create', tag, '-R', PUBLIC_REPO, '--draft', '--title', `Household Remote ${tag}`, '--notes-file', notes, ...names.map(name => join(signed, name))]);
-  gh(['release', 'download', tag, '-R', PUBLIC_REPO, '-D', checked]);
-  for (const name of names) if (sha256(join(signed, name)) !== sha256(join(checked, name))) throw new Error(`Public download verification failed: ${name}`);
-  gh(['release', 'edit', tag, '-R', PUBLIC_REPO, '--draft=false', '--latest']);
+  // Mutate only the verified CI draft. Never overwrite a published release or unknown assets.
+  const unsignedNames = [...Object.keys(value.files), 'unsigned.json', 'SHA256SUMS'];
+  publishDraft({ gh, repo: PUBLIC_REPO, tag, release: sourceRelease, unsignedNames, names,
+    signedPath: name => join(signed, name), checkedPath: checked, notes,
+    verify: () => {
+      for (const name of names) if (sha256(join(signed, name)) !== sha256(join(checked, name))) throw new Error(`Public download verification failed: ${name}`);
+    } });
   log.step(`Published ${tag} after verifying downloaded bytes; local evidence ${work}`);
 });

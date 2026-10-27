@@ -6,4 +6,4 @@ TV information alone uses plaintext HTTP. Pairing uses :8002, samsung.remote.con
 
 WOL broadcasts a bounded burst on the active Wi-Fi network and polls information before reconnect. Shortcut sequences own input exclusively and cancel on lifecycle/selection change.
 
-Release path: private CI → unsigned APK/AAB plus hashes/provenance → private draft → attended local verification/signing → public release draft → downloaded-byte verification → publication last. The app checks the public release manually, downloads to private cache, validates APK metadata and signer, then opens the system installer.
+Release path: CI builds unsigned APK/AAB and provenance, then drafts a release in this public repository. Attended local signing verifies the CI inputs, replaces unsigned draft assets, checks downloaded bytes and publishes last. The app checks this repository manually, downloads to private cache, validates APK metadata and signer, then opens the system installer.

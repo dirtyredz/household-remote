@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 export const SOURCE_REPO = 'dirtyredz/household-remote';
-export const PUBLIC_REPO = 'dirtyredz/household-remote-releases';
+export const PUBLIC_REPO = SOURCE_REPO;
 export const flavors = ['remote', 'owner'];
 export const sha256 = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 export function version(tag, code) {

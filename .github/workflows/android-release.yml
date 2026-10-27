@@ -42,7 +42,7 @@ jobs:
           path: .tmp/release-stage/
           if-no-files-found: error
           retention-days: 90
-      - name: Create private unsigned draft
+      - name: Create unsigned draft in this repository
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$RELEASE_TAG" --verify-tag --draft --title "Household Remote $RELEASE_TAG (unsigned)" --notes "Unsigned CI artifacts. Run the attended local signing script before public distribution." .tmp/release-stage/*

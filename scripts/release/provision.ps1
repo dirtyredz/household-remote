@@ -36,7 +36,7 @@ try {
     $fingerprint = ([BitConverter]::ToString($sha.ComputeHash($cert.RawData))).Replace('-', '').ToLowerInvariant()
     $cert.Dispose(); $sha.Dispose()
     @{ certificateSha256 = $fingerprint; status = 'Provisioned; key held in 1Password' } | ConvertTo-Json | Set-Content -Encoding UTF8 $record
-    Write-Log "Provisioned. Private references: document $documentId; password op://$Vault/$passwordId/password. Keep these out of public artifacts. Commit the public fingerprint."
+    Write-Log 'Provisioned. Retrieve the document and password references in 1Password for the attended signing run. Keep them in private owner records. Commit only the public fingerprint.'
 } catch { if ($key -and (Test-Path -LiteralPath $key)) { Remove-Item -LiteralPath $key -Force }; $env:HOUSEHOLD_SIGN_PASSWORD = $null; Complete-OwnerRun 1 $_.Exception.Message }
 finally { if ($key -and (Test-Path -LiteralPath $key)) { Remove-Item -LiteralPath $key -Force }; $env:HOUSEHOLD_SIGN_PASSWORD = $null }
 Complete-OwnerRun 0

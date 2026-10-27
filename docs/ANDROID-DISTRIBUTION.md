@@ -13,7 +13,7 @@ powershell -NoProfile -File scripts/release/provision.ps1 -Vault Personal
 
 Provisioning creates a dedicated PKCS12 key and password in 1Password, removes the local key, and records only the public certificate SHA-256 in `src/android/releases/signing-certificate.json`. Keep the two private item references in private owner records. Commit the fingerprint before tagging. Never replace it to fix an update error. Preserve access to both items; losing this key prevents in-place updates.
 
-Run `powershell -NoProfile -File scripts/release/setup-releases.ps1` (supports `-DryRun`) to create or verify the **public**, initially empty `dirtyredz/household-remote-releases` repository. Source remains private. Owner publishes a version tag in the source repository; `.github/workflows/android-release.yml` gates both flavors, builds unsigned APK/AAB, uploads a CI artifact and creates a private draft. Version codes use that workflow's monotonically increasing run number; retries retain the same code. Do not reset the workflow counter or publish older runs after newer ones.
+The repository `dirtyredz/household-remote` is public and hosts both source and releases. Owner publishes a version tag here; `.github/workflows/android-release.yml` gates both flavors, builds unsigned APK/AAB, uploads a CI artifact and creates an unsigned draft here. Version codes use that workflow's monotonically increasing run number; retries retain the same code. Do not reset the workflow counter or publish older runs after newer ones.
 
 On a clean checkout of the exact release commit, run:
 
@@ -22,9 +22,9 @@ powershell -NoProfile -File scripts/release/sign-and-publish.ps1 -DryRun
 powershell -NoProfile -File scripts/release/sign-and-publish.ps1 -Tag v0.1.0 -RunId <successful-run-id> -KeyDocument <private-document-id> -PasswordReference op://Personal/<private-password-id>/password -AndroidSdk <installed-sdk>
 ```
 
-The script checks source repository, workflow path/event/success, tag commit, clean local commit, CI artifact versus private draft provenance and file hashes. It verifies APK package/version, signs both APKs/AABs locally, verifies the permanent signer, uploads only four signed packages plus `update.json` and checksums to a public **draft**, downloads and compares every byte digest, then publishes last. Existing public tags are never overwritten. Failure after draft creation leaves that draft unpublished; inspect and remove that draft before retrying. Failure before draft creation has no public effect. No unattended signing or Worker credentials exist.
+The script checks source repository, workflow path/event/success, tag commit, clean local commit, CI artifact versus unsigned draft provenance and file hashes. It verifies APK package/version, signs both APKs/AABs locally, verifies the permanent signer, removes the verified unsigned draft assets, uploads only four signed packages plus `update.json` and checksums to that same **draft**, downloads and compares every byte digest, then publishes last. Published releases are never overwritten. Failure leaves the draft unpublished. If replacement has started, inspect the draft and restore the exact unsigned CI assets before retrying; unknown assets are rejected. No unattended signing or Worker credentials exist.
 
-The app manually reads the public latest release, validates flavor/package/version and bounded digest-checked download, compares the archive's signer with its installed signer, and delegates installation to Android. Unknown-source permission denial leaves the update pending; retry the install button after granting it. No anonymous access to the private repo is attempted.
+The app manually reads the public latest release, validates flavor/package/version and bounded digest-checked download, compares the archive's signer with its installed signer, and delegates installation to Android. Unknown-source permission denial leaves the update pending; retry the install button after granting it. No login or separate release repository is needed.
 
 ## Acceptance still required
 

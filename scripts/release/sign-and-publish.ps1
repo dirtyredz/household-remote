@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Verify a successful private CI release, sign locally using 1Password, publish public assets last.
+Verify a successful CI release, sign locally using 1Password, publish public assets last.
 .DESCRIPTION
 Owner-run, attended. Requires installed gh, op, Node, Java and Android build tools 35.0.0.
 Dry run does not access 1Password or GitHub. Exit 0 success/dry-run, 1 failure.
@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 Initialize-OwnerRun 'sign-and-publish'
 $key = $null
 try {
-    if ($DryRun) { Write-Log 'DRY RUN: verify private CI run/tag/artifact provenance; retrieve key; sign both APK/AAB flavors; verify signer/packages/bytes; create public draft; download/compare; publish last.'; Complete-OwnerRun 0 }
+    if ($DryRun) { Write-Log 'DRY RUN: verify CI run/tag/artifact provenance; retrieve key; sign both APK/AAB flavors; verify signer/packages/bytes; replace unsigned assets in the verified draft; download/compare; publish last.'; Complete-OwnerRun 0 }
     if ($Tag -notmatch '^v\d+\.\d+\.\d+$' -or $RunId -notmatch '^\d+$' -or -not $KeyDocument -or -not $PasswordReference) { throw 'Provide Tag, RunId, KeyDocument and PasswordReference' }
     foreach ($tool in @('gh', 'op', 'node', 'keytool', 'jarsigner')) { if (-not (Find-Tool $tool)) { throw "$tool required" } }
     $key = Join-Path $script:RepoRoot ('.tmp/attended-' + [guid]::NewGuid() + '.p12')
