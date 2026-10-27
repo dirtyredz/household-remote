@@ -6,7 +6,8 @@ From the repository root, with JDK 17/21 and Android SDK 36 already installed. S
 New-Item -ItemType Directory -Force .tmp/test-temp | Out-Null
 $env:TEMP = (Resolve-Path .tmp/test-temp).Path
 $env:TMP = $env:TEMP
-.\src\android\gradlew.bat -p src/android --offline --no-daemon ktlintCheck testRemoteDebugUnitTest testOwnerDebugUnitTest lintRemoteRelease lintOwnerRelease assembleRemoteDebug assembleOwnerDebug assembleRemoteRelease assembleOwnerRelease bundleRemoteRelease bundleOwnerRelease
+$daemonRegistry = Join-Path (Resolve-Path .tmp).Path 'gradle-daemon'
+.\src\android\gradlew.bat -p src/android --offline --no-daemon "-Dorg.gradle.daemon.registry.base=$daemonRegistry" ktlintCheck testRemoteDebugUnitTest testOwnerDebugUnitTest lintRemoteRelease lintOwnerRelease assembleRemoteDebug assembleOwnerDebug assembleRemoteRelease assembleOwnerRelease bundleRemoteRelease bundleOwnerRelease
 node --test src/household/export.test.mjs src/household/privacy.test.mjs src/android/releases/contract.test.mjs tools/script-run/script-run.test.mjs
 node src/android/icons/generate-icons.mjs --check
 powershell -NoProfile -File scripts/release/signing-smoke.ps1

@@ -6,6 +6,7 @@
 - `src/android/app/src/main/java/com/dirtyredz/householdremote/`: `inventory` owns JSON inventory; `discovery` owns SSDP/REST; `security` owns encrypted credentials and TV certificate trust; `remote` owns foreground sessions and serialized input; `power` owns WOL; `shortcuts` owns calibrated sequences; `selfupdate` owns public release validation/install; `ui` owns Compose and lifecycle.
 - `src/android/app/src/test/`: offline JVM and fake-server tests.
 - `src/android/icons/`: source SVG and deterministic Android vector generator/check.
+- `src/android/releases/`: unsigned staging, provenance and draft-publication contracts, Android signing tools and disposable-key smoke.
 - `src/household/`: explicit manifest export, private-data guard and offline tests. Real input is ignored `config/household.local.json`; exports stay under `.tmp/`.
 - `scripts/release/`: attended provisioning, signing, publication and disposable smoke.
 - `scripts/owner/owner-run.ps1`: verbatim owner-run 1.0.0 template.
