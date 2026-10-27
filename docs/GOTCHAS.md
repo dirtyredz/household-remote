@@ -9,3 +9,4 @@
 - Gradle's shared daemon registry crosses worktrees: another checkout's `gradlew --stop` can stop a single-use build here. Wait for other builds and do not issue global daemon stops. The installed SDK command-line tools emit an SDK XML v4/v3 compatibility warning; no SDK download is needed to address app source failures.
 
 - Household inventory belongs only in ignored `config/household.local.json` or `.tmp/`; examples are fictional. The privacy gate rejects the household subnet and non-placeholder 1Password references.
+- Windows `local.properties` needs an escaped drive colon (`sdk.dir=C\:/...`); an unescaped colon can build successfully but fails release lint. Prefer `ANDROID_HOME` when setting up a new checkout. Lint can cache this error without tracking a local-properties edit; use `--rerun-tasks` on the fast gate after fixing it.

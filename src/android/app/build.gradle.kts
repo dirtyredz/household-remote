@@ -11,8 +11,14 @@ android {
         applicationId = "com.dirtyredz.householdremote"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("versionCode").orElse("1").get().toInt().also { require(it in 1..2100000000) }
-        versionName = providers.gradleProperty("versionName").orElse("0.1.0").get().also { require(Regex("[0-9]+\\.[0-9]+\\.[0-9]+").matches(it)) }
+        versionCode =
+            providers.gradleProperty("versionCode").orElse("1").get().toInt().also {
+                require(it in 1..2100000000)
+            }
+        versionName =
+            providers.gradleProperty("versionName").orElse("0.1.0").get().also {
+                require(Regex("[0-9]+\\.[0-9]+\\.[0-9]+").matches(it))
+            }
     }
     flavorDimensions += "audience"
     productFlavors {
@@ -64,5 +70,5 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
-    testImplementation("com.squareup.okhttp3:okhttp-tls:5.3.2")
+    testImplementation(libs.okhttp.tls)
 }
