@@ -24,15 +24,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
+import com.dirtyredz.householdremote.apps.TvApp
 import com.dirtyredz.householdremote.ui.RemoteState
 
 /** Everything the remote surface can ask for; the route wires these to the ViewModel. */
 class RemoteCallbacks(
     val onKey: (String) -> Unit,
     val onPower: () -> Unit,
-    val onShortcut: (String) -> Unit,
-    val onCancelSequence: () -> Unit,
-    val onCalibrate: () -> Unit,
+    val onLaunchApp: (TvApp) -> Unit,
     val onPickTv: () -> Unit,
     val onOverflow: () -> Unit,
     val onWifiSettings: () -> Unit
@@ -53,8 +52,7 @@ fun compactRemote(height: Dp, fontScale: Float): Boolean =
 @Composable
 fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modifier = Modifier) {
     val selected = state.selected != null
-    val enabled = state.inputEnabled
-    // Ordinary keys stay live while reconnecting so one fresh key can wait; shortcuts do not.
+    // Ordinary keys stay live while reconnecting so one fresh key can wait; app buttons do not.
     val keys = state.keysEnabled
     val power = powerPresentation(selected, state.connection.state, state.power, state.onWifi)
     BoxWithConstraints(
@@ -98,14 +96,10 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
             Spacer(Modifier.height(gap))
             AudioChannelRow(keys, callbacks.onKey, horizontal = compact)
             Spacer(Modifier.height(gap))
-            ShortcutControls(
-                configured = state.configured,
-                enabled = enabled,
-                running = state.busy,
-                canCalibrate = selected,
-                onShortcut = callbacks.onShortcut,
-                onCalibrate = callbacks.onCalibrate,
-                onCancel = callbacks.onCancelSequence,
+            AppButtons(
+                enabled = state::appEnabled,
+                install = state::install,
+                onLaunch = callbacks.onLaunchApp,
                 compact = compact
             )
             Spacer(Modifier.height(8.dp))

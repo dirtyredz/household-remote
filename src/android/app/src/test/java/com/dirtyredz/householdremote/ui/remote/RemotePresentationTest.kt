@@ -126,12 +126,12 @@ class RemotePresentationTest {
         val on = PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true, false)
         assertNull("nothing to say", remoteNotice(on, connected, ""))
         assertEquals(
-            RemoteNotice.Message("Sequence sent"),
-            remoteNotice(on, connected, "Sequence sent")
+            RemoteNotice.Message("Opening Netflix…"),
+            remoteNotice(on, connected, "Opening Netflix…")
         )
         assertEquals(
             RemoteNotice.Error("TV not ready"),
-            remoteNotice(on.copy(error = "TV not ready"), connected, "Sequence sent")
+            remoteNotice(on.copy(error = "TV not ready"), connected, "Opening Netflix…")
         )
         assertEquals(
             RemoteNotice.Progress(PowerLabel.TurningOn),

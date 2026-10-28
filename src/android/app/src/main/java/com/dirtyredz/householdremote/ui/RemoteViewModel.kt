@@ -2,6 +2,9 @@ package com.dirtyredz.householdremote.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dirtyredz.householdremote.apps.AppInstall
+import com.dirtyredz.householdremote.apps.AppInstallProbe
+import com.dirtyredz.householdremote.apps.TvApp
 import com.dirtyredz.householdremote.discovery.SsdpDiscovery
 import com.dirtyredz.householdremote.discovery.TvProbe
 import com.dirtyredz.householdremote.inventory.Household
@@ -17,9 +20,6 @@ import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.security.Credentials
-import com.dirtyredz.householdremote.shortcuts.ShortcutProfile
-import com.dirtyredz.householdremote.shortcuts.ShortcutStore
-import com.dirtyredz.householdremote.shortcuts.ShortcutTextCodec
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -48,8 +48,8 @@ typealias PowerControllerFactory = (
 
 class RemoteViewModel(
     private val repository: HouseholdRepository,
-    private val profiles: ShortcutStore,
     private val probe: TvProbe,
+    private val appProbe: AppInstallProbe,
     private val discovery: SsdpDiscovery,
     private val wifi: WifiMonitor,
     credentials: Credentials,
@@ -69,6 +69,7 @@ class RemoteViewModel(
     private val session: RemoteSession
     private val power: PowerController
     private var operation: Job? = null
+    private var appCheck: Job? = null
     private var foreground = false
 
     init {
@@ -82,12 +83,14 @@ class RemoteViewModel(
                 val changed = status.state != previous.connection.state
                 mutable.value = previous.copy(
                     connection = status,
-                    message = if (changed) "" else previous.message,
-                    busy = false
+                    message = if (changed) "" else previous.message
                 )
                 when {
                     // Only a new usable session starts input; a held fresh key goes out once.
-                    status.ready && !wasReady -> dispatcher.start()
+                    status.ready && !wasReady -> {
+                        dispatcher.start()
+                        mutable.value.selected?.let(::checkApps)
+                    }
 
                     status.state == ConnectionState.Offline -> dispatcher.discardPending()
 
@@ -100,14 +103,13 @@ class RemoteViewModel(
         dispatcher = dispatcherFactory(
             viewModelScope,
             { session.send(it) },
-            { message -> mutable.value = mutable.value.copy(message = message, busy = false) }
+            { message -> mutable.value = mutable.value.copy(message = message) }
         )
         power = powerFactory(
             viewModelScope,
             object : PowerLink {
                 override fun disconnect() {
                     session.disconnect()
-                    mutable.value = mutable.value.copy(busy = false)
                 }
                 override fun connect(tv: Tv): Boolean {
                     if (!foreground || state.value.selected?.mac != tv.mac) return false
@@ -115,7 +117,6 @@ class RemoteViewModel(
                     return true
                 }
                 override fun standby(): Boolean {
-                    mutable.value = mutable.value.copy(busy = false)
                     // Deliberate standby: the drop that follows is not recovered automatically.
                     session.suppressRecovery()
                     return dispatcher.standby()
@@ -142,20 +143,16 @@ class RemoteViewModel(
         foreground = false
         wifi.stop()
         operation?.cancel()
+        appCheck?.cancel()
         power.reset()
         dispatcher.discardPending()
         session.disconnect()
-        mutable.value = mutable.value.copy(busy = false)
     }
 
     private fun refresh() {
-        val selected = household.tvs.find { it.id == household.selected }
         mutable.value = mutable.value.copy(
             tvs = household.tvs,
-            selected = selected,
-            configured = ShortcutProfile.apps.filter {
-                selected != null && profiles.get(selected.mac, it) != null
-            }.toSet()
+            selected = household.tvs.find { it.id == household.selected }
         )
     }
 
@@ -169,7 +166,26 @@ class RemoteViewModel(
         power.reset()
         dispatcher.discardPending()
         session.disconnect()
-        mutable.value = mutable.value.copy(busy = false)
+        // Install status belongs to the TV it was read from.
+        appCheck?.cancel()
+        mutable.value = mutable.value.copy(apps = emptyMap())
+    }
+
+    /** Read-only install check for the app buttons; the result only applies to [tv]. */
+    private fun checkApps(tv: Tv) {
+        appCheck?.cancel()
+        appCheck = viewModelScope.launch {
+            val found = try {
+                appProbe.installed(tv.ip)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                return@launch
+            }
+            if (state.value.selected?.mac == tv.mac) {
+                mutable.value = mutable.value.copy(apps = found)
+            }
+        }
     }
 
     fun select(tv: Tv) {
@@ -194,10 +210,7 @@ class RemoteViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutable.value = mutable.value.copy(
-                    message = error.message ?: "Operation failed",
-                    busy = false
-                )
+                mutable.value = mutable.value.copy(message = error.message ?: "Operation failed")
             }
         }
     }
@@ -239,6 +252,21 @@ class RemoteViewModel(
         message(if (dispatcher.hold(key)) KEY_HELD else KEY_REJECTED)
     }
 
+    /** One launch request on the live session; never held for, or replayed after, recovery. */
+    fun launch(app: TvApp) {
+        val current = state.value
+        message(
+            when {
+                current.install(app) == AppInstall.NotInstalled ->
+                    "${app.label} is not installed on this TV"
+
+                current.appEnabled(app) && dispatcher.launch(app) -> "Opening ${app.label}…"
+
+                else -> "${app.label} not opened; TV not connected"
+            }
+        )
+    }
+
     private fun message(text: String) {
         mutable.value = mutable.value.copy(message = text)
     }
@@ -251,46 +279,19 @@ class RemoteViewModel(
         power.toggle(tv, state.value.ready)
     }
 
-    fun cancelSequence() {
-        dispatcher.cancel()
-        if (state.value.ready) dispatcher.start()
-        mutable.value = mutable.value.copy(busy = false, message = "Sequence cancelled")
-    }
-
-    fun shortcut(app: String) {
-        val tv = state.value.selected ?: return
-        val profile = profiles.get(tv.mac, app) ?: return
-        if (!state.value.inputEnabled) return
-        mutable.value = mutable.value.copy(busy = true, message = "Sending $app sequence…")
-        dispatcher.run(profile)
-    }
-
-    fun profileText(app: String): String = state.value.selected?.let {
-        profiles.get(it.mac, app)
-    }?.let(ShortcutTextCodec::encode).orEmpty()
-
-    fun saveProfile(app: String, text: String) = action {
-        val tv = state.value.selected ?: return@action
-        if (text.isBlank()) {
-            profiles.remove(tv.mac, app)
-        } else {
-            profiles.save(tv.mac, ShortcutTextCodec.decode(app, text))
-        }
-        refresh()
-        mutable.value = mutable.value.copy(message = "Calibration saved locally")
-    }
-
     override fun onCleared() {
         wifi.stop()
+        appCheck?.cancel()
         power.reset()
         dispatcher.discardPending()
         session.disconnect()
         probe.close()
+        appProbe.close()
         super.onCleared()
     }
 
     private companion object {
-        const val INPUT_UNAVAILABLE = "Input unavailable; connect or cancel sequence"
+        const val INPUT_UNAVAILABLE = "Input unavailable; connect first"
         const val KEY_HELD = "Reconnecting; key will send when connected"
         const val KEY_REJECTED = "Still reconnecting; key not sent"
     }

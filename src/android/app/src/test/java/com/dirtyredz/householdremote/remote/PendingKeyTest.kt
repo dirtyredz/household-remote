@@ -1,7 +1,5 @@
 package com.dirtyredz.householdremote.remote
 
-import com.dirtyredz.householdremote.shortcuts.ShortcutProfile
-import com.dirtyredz.householdremote.shortcuts.ShortcutStep
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -79,14 +77,6 @@ class PendingKeyTest {
         assertFalse("standby is never queued for later", h.dispatcher.hold("KEY_POWER"))
         h.dispatcher.start()
         assertFalse("a live queue takes taps directly", h.dispatcher.hold("KEY_UP"))
-        h.dispatcher.run(
-            ShortcutProfile(
-                "Netflix",
-                listOf(ShortcutStep("KEY_HOME", 1_000), ShortcutStep("KEY_ENTER", 100))
-            )
-        )
-        runCurrent()
-        assertFalse("never while a shortcut owns input", h.dispatcher.hold("KEY_UP"))
         h.dispatcher.cancel()
     }
 

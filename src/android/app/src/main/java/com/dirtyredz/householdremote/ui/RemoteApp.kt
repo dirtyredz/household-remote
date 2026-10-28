@@ -23,14 +23,13 @@ import com.dirtyredz.householdremote.ui.settings.SettingsDialog
 import com.dirtyredz.householdremote.ui.setup.ImportManifestDialog
 import com.dirtyredz.householdremote.ui.setup.PairingDialog
 import com.dirtyredz.householdremote.ui.setup.TvManagementSheet
-import com.dirtyredz.householdremote.ui.shortcuts.CalibrationDialog
 
-private enum class Overlay { Tvs, Actions, Settings, Import, Pairing, Calibration }
+private enum class Overlay { Tvs, Actions, Settings, Import, Pairing }
 
 /**
  * Production route: lifecycle-driven start/stop, ViewModel collection, and which sheet or
- * dialog is showing. Pairing and calibration are bound to the TV they were opened for and
- * close when the selection changes.
+ * dialog is showing. Pairing is bound to the TV it was opened for and closes when the
+ * selection changes.
  */
 @Composable
 fun RemoteApp(providedModel: RemoteViewModel? = null) {
@@ -62,9 +61,7 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
         RemoteCallbacks(
             onKey = model::tap,
             onPower = model::togglePower,
-            onShortcut = model::shortcut,
-            onCancelSequence = model::cancelSequence,
-            onCalibrate = { open(Overlay.Calibration, boundToTv = true) },
+            onLaunchApp = model::launch,
             onPickTv = { open(Overlay.Tvs) },
             onOverflow = { open(Overlay.Actions) },
             onWifiSettings = { openWifiSettings(context) }
@@ -115,18 +112,6 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
                 onPair = {
                     close()
                     model.connect(true)
-                },
-                onDismiss = ::close
-            )
-        }
-
-        Overlay.Calibration -> if (tv != null && tv.id == overlayTv) {
-            CalibrationDialog(
-                tvName = tv.name,
-                profileText = model::profileText,
-                onSave = { app, steps ->
-                    model.saveProfile(app, steps)
-                    close()
                 },
                 onDismiss = ::close
             )

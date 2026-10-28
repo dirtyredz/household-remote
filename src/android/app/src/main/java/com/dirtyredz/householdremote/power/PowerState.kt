@@ -1,6 +1,6 @@
 package com.dirtyredz.householdremote.power
 
-/** The power operation in progress, independent of general messages and shortcut ownership. */
+/** The power operation in progress, independent of general messages and input. */
 enum class PowerPhase { Idle, Waking, Connecting, SendingStandby }
 
 /** What one power activation will do. Decided when the activation is accepted. */

@@ -9,11 +9,7 @@ import com.dirtyredz.householdremote.remote.SamsungProtocol
 import com.dirtyredz.householdremote.selfupdate.UpdateArtifact
 import com.dirtyredz.householdremote.selfupdate.UpdateContract
 import com.dirtyredz.householdremote.selfupdate.UpdateManifest
-import com.dirtyredz.householdremote.shortcuts.ShortcutProfile
-import com.dirtyredz.householdremote.shortcuts.ShortcutStep
-import com.dirtyredz.householdremote.shortcuts.ShortcutTextCodec
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
@@ -100,55 +96,6 @@ class CoreTest {
         runCurrent()
         assertEquals(1, sent.size)
         dispatcher.cancel()
-    }
-
-    @Test fun shortcutOwnsInputAndHonorsTimingAndCancellation() = runTest {
-        val sent = mutableListOf<String>()
-        val statuses = mutableListOf<String>()
-        val dispatcher = KeyDispatcher(this, {
-            sent += it
-            true
-        }, { statuses += it })
-        val profile =
-            ShortcutProfile(
-                "Netflix",
-                listOf(ShortcutStep("KEY_HOME", 1000), ShortcutStep("KEY_ENTER", 100))
-            )
-        dispatcher.start()
-        dispatcher.run(profile)
-        runCurrent()
-        assertFalse(dispatcher.tap("KEY_UP"))
-        advanceTimeBy(999)
-        runCurrent()
-        assertEquals(1, sent.size)
-        advanceTimeBy(1)
-        runCurrent()
-        assertEquals(2, sent.size)
-        advanceTimeBy(100)
-        runCurrent()
-        assertEquals("Sequence sent", statuses.last())
-        assertTrue(dispatcher.tap("KEY_UP"))
-        runCurrent()
-        dispatcher.run(profile)
-        runCurrent()
-        dispatcher.cancel()
-        advanceTimeBy(5000)
-        runCurrent()
-        assertEquals(4, sent.size)
-    }
-
-    @Test fun dangerousOrUnboundedShortcutsAreRejected() {
-        assertThrows(Exception::class.java) {
-            ShortcutTextCodec.decode("Netflix", "KEY_HOME 1000\nKEY_POWER 100\nKEY_ENTER 100")
-        }
-        assertThrows(Exception::class.java) {
-            ShortcutTextCodec.decode("Plex", "KEY_HOME 99999\nKEY_ENTER 100")
-        }
-    }
-
-    @Test fun shortcutTextRoundTripsValidatedSteps() {
-        val text = "KEY_HOME 1000\nKEY_RIGHT 500\nKEY_ENTER 100"
-        assertEquals(text, ShortcutTextCodec.encode(ShortcutTextCodec.decode("Plex", text)))
     }
 
     @Test fun updateRejectsWrongFlavorSignerDowngradeAndHost() {

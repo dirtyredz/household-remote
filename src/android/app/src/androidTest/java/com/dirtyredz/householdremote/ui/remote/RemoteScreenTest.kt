@@ -20,6 +20,7 @@ import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
@@ -27,12 +28,13 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dirtyredz.householdremote.R
+import com.dirtyredz.householdremote.apps.AppInstall
+import com.dirtyredz.householdremote.apps.TvApp
 import com.dirtyredz.householdremote.inventory.Tv
 import com.dirtyredz.householdremote.power.PowerPhase
 import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
-import com.dirtyredz.householdremote.shortcuts.ShortcutProfile
 import com.dirtyredz.householdremote.ui.RemoteState
 import com.dirtyredz.householdremote.ui.theme.RemoteTheme
 import org.junit.Assert.assertEquals
@@ -52,7 +54,7 @@ class RemoteScreenTest {
         selected = tv,
         message = "",
         connection = ConnectionStatus(ConnectionState.Connected, "Connected"),
-        configured = setOf("Netflix")
+        apps = mapOf(TvApp.Plex to AppInstall.NotInstalled)
     )
     private var state by mutableStateOf(connected)
     private val keys = mutableListOf<String>()
@@ -60,9 +62,7 @@ class RemoteScreenTest {
     private val callbacks = RemoteCallbacks(
         onKey = { keys += it },
         onPower = { events += "power" },
-        onShortcut = { events += "shortcut:$it" },
-        onCancelSequence = { events += "cancel" },
-        onCalibrate = { events += "calibrate" },
+        onLaunchApp = { events += "app:${it.name}" },
         onPickTv = { events += "pick" },
         onOverflow = { events += "overflow" },
         onWifiSettings = { events += "wifi" }
@@ -73,7 +73,7 @@ class RemoteScreenTest {
         "KEY_VOLUP", "KEY_VOLDOWN", "KEY_MUTE", "KEY_CHUP", "KEY_CHDOWN"
     )
     private val allTargets = listOf("tv_picker", "overflow", "power") +
-        mappedKeys.map { "key_$it" } + ShortcutProfile.apps.map { "shortcut_$it" } + "calibrate"
+        mappedKeys.map { "key_$it" } + TvApp.entries.map { "app_${it.name}" }
 
     private fun mount(fontScale: Float = 1f, width: Int = 360, height: Int = 760) =
         rule.setContent {
@@ -110,7 +110,7 @@ class RemoteScreenTest {
             "direction_pad",
             "key_KEY_RETURN",
             "key_KEY_VOLDOWN",
-            "shortcut_Netflix"
+            "app_Netflix"
         )
         order.zipWithNext().forEach { (above, below) ->
             val upper = rule.onNodeWithTag(above).getUnclippedBoundsInRoot()
@@ -159,8 +159,8 @@ class RemoteScreenTest {
     @Test fun connectionStatusIsShownOnceWithNoBottomMessageLine() {
         mount()
         rule.onAllNodesWithText(text(R.string.connection_connected)).assertCountEquals(1)
-        show(connected.copy(message = "Sequence sent"))
-        rule.onNodeWithTag("notice", useUnmergedTree = true).assertTextContains("Sequence sent")
+        show(connected.copy(message = "Opening Netflix…"))
+        rule.onNodeWithTag("notice", useUnmergedTree = true).assertTextContains("Opening Netflix…")
         rule.mainClock.advanceTimeBy(MESSAGE_VISIBLE_MS + 500)
         rule.onNodeWithTag("notice", useUnmergedTree = true).assertDoesNotExist()
     }
@@ -231,7 +231,7 @@ class RemoteScreenTest {
         assertTrue(keys.isEmpty())
     }
 
-    @Test fun ordinaryKeysStayLiveWhileReconnectingButShortcutsDoNot() {
+    @Test fun ordinaryKeysStayLiveWhileReconnectingButAppButtonsDoNot() {
         mount()
         show(
             connected.copy(
@@ -239,21 +239,21 @@ class RemoteScreenTest {
             )
         )
         rule.onNodeWithTag("key_KEY_UP").assertIsEnabled().performClick()
-        rule.onNodeWithTag("shortcut_Netflix").assertIsNotEnabled()
+        rule.onNodeWithTag("app_Netflix").assertIsNotEnabled()
         assertEquals(listOf("KEY_UP"), keys)
     }
 
-    @Test fun uncalibratedShortcutsAreDisabledBesideCalibrationAndSequencesCancel() {
+    @Test fun appButtonsLaunchDirectlyAndGreyOutOnlyWhenNotInstalled() {
         mount()
-        rule.onNodeWithTag("shortcut_Netflix").assertIsEnabled().performClick()
-        ShortcutProfile.apps.filter { it != "Netflix" }.forEach { app ->
-            rule.onNodeWithTag("shortcut_$app").assertIsNotEnabled()
+        listOf(TvApp.Netflix, TvApp.Prime, TvApp.Disney).forEach { app ->
+            rule.onNodeWithTag("app_${app.name}").assertIsEnabled().performClick()
         }
-        rule.onNodeWithTag("calibrate").assertIsEnabled().performClick()
-        show(connected.copy(busy = true))
-        rule.onNodeWithTag("shortcut_Netflix").assertDoesNotExist()
-        rule.onNodeWithTag("cancel_sequence").assertIsDisplayed().performClick()
-        assertEquals(listOf("shortcut:Netflix", "calibrate", "cancel"), events)
+        rule.onNodeWithTag("app_Plex").assertIsNotEnabled().performClick()
+        rule.onNodeWithContentDescription("Plex, ${text(R.string.app_not_installed)}")
+            .assertExists()
+        rule.onNodeWithTag("calibrate").assertDoesNotExist()
+        rule.onNodeWithTag("cancel_sequence").assertDoesNotExist()
+        assertEquals(listOf("app:Netflix", "app:Prime", "app:Disney"), events)
     }
 
     @Test fun compactWidthAndLargeTextKeepEveryTargetOnScreen() {

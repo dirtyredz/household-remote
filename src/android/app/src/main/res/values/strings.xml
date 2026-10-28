@@ -47,8 +47,7 @@
     <string name="rocker_volume">VOL</string>
     <string name="rocker_channel">CH</string>
 
-    <!-- Shortcuts -->
-    <string name="shortcuts_title">Apps</string>
-    <string name="shortcuts_calibrate">Calibrate</string>
-    <string name="shortcuts_cancel">Cancel sequence</string>
+    <!-- App buttons -->
+    <string name="apps_title">Apps</string>
+    <string name="app_not_installed">not installed on this TV</string>
 </resources>

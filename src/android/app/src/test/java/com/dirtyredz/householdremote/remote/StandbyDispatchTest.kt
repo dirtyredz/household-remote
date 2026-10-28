@@ -1,7 +1,6 @@
 package com.dirtyredz.householdremote.remote
 
-import com.dirtyredz.householdremote.shortcuts.ShortcutProfile
-import com.dirtyredz.householdremote.shortcuts.ShortcutStep
+import com.dirtyredz.householdremote.apps.TvApp
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -46,25 +45,19 @@ class StandbyDispatchTest {
         dispatcher.cancel()
     }
 
-    @Test fun standbyCancelsAnActiveShortcut() = runTest {
+    @Test fun standbyDropsAQueuedAppLaunch() = runTest {
         val sent = mutableListOf<String>()
         val dispatcher = KeyDispatcher(this, {
             sent += it
             true
         }, {})
-        val profile = ShortcutProfile(
-            "Netflix",
-            listOf(ShortcutStep("KEY_HOME", 1000), ShortcutStep("KEY_ENTER", 100))
-        )
         dispatcher.start()
-        dispatcher.run(profile)
-        runCurrent()
-        assertTrue(dispatcher.busy)
+        assertTrue(dispatcher.launch(TvApp.Netflix))
         assertTrue(dispatcher.standby())
-        assertFalse(dispatcher.busy)
         advanceTimeBy(5_000)
         runCurrent()
-        assertEquals(listOf(SamsungProtocol.key("KEY_HOME"), power), sent)
+        assertEquals("power outranks a launch not yet sent", listOf(power), sent)
+        assertFalse("no launch until a new session", dispatcher.launch(TvApp.Netflix))
     }
 
     @Test fun rejectedSendIsReportedWithoutRetry() = runTest {

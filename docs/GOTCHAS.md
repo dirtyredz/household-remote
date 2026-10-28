@@ -10,7 +10,7 @@
 - The remote never scrolls (owner ruling). New controls must come out of the D-pad's flexible height or the compact layout rule in `RemoteScreen.compactRemote`; keep `RemoteScreenTest`'s fit checks (360x640 at 1.0/1.3, 411x891 at 1.3) passing.
 - The heartbeat proves the socket, not the TV: `send` true means OkHttp queued the frame. A key sent just before an undetected half-open drop can be lost and is never retried. The 15 s ping is a proposed default; confirm Samsung tolerates it during phone acceptance.
 - `res/values/colors.xml`, `drawable/ic_remote.xml` and the launcher XML are byte-checked outputs of `src/android/icons/generate-icons.mjs`; put other colors in `values/remote_colors.xml`.
-- Home-bar positions and delays drift. Recalibrate while watching; cancel immediately if navigation is wrong.
+- App IDs are per Tizen store listing and can change with a TV region or app update (the older Netflix/Plex IDs already 404 on both TVs). If a button stops opening its app, read the ID again with a read-only `GET http://<tv>:8001/api/v2/applications/<id>` and update `apps/TvApp`. "Opening …" only means the frame was sent; Samsung confirms nothing per app.
 - No phone is attached during implementation. Keystore, Android installer, multicast permissions, actual TV response and latency need device acceptance.
 - Gradle's shared daemon registry crosses worktrees: another checkout's `gradlew --stop` can stop a single-use build here. VERIFY.md isolates the registry under `.tmp/gradle-daemon` while retaining the shared dependency cache. Still wait for other builds and never issue global daemon stops. The installed SDK command-line tools emit an SDK XML v4/v3 compatibility warning; no SDK download is needed to address app source failures.
 

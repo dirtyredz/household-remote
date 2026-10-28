@@ -61,7 +61,7 @@ class RemoteSession(
 
     /**
      * Foreground start. Idempotent while the same TV is connected or being connected, so a
-     * repeated start never restarts input or cancels a running shortcut.
+     * repeated start never restarts input.
      */
     fun ensureConnected(tv: Tv, port: Int = DEFAULT_PORT) {
         if (target == Target(tv, port) && (state in active || parked)) return
