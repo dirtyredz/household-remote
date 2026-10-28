@@ -70,8 +70,13 @@ class PowerController(
         if (state.phase != PowerPhase.Connecting) return
         when (status.state) {
             ConnectionState.Connected -> state = PowerState()
-            ConnectionState.Offline -> state = PowerState(error = CONNECT_FAILED)
-            ConnectionState.Connecting, ConnectionState.AwaitingApproval -> Unit
+
+            ConnectionState.Offline, ConnectionState.Unavailable ->
+                state = PowerState(error = CONNECT_FAILED)
+
+            // A just-woken TV may refuse the first attempts; bounded recovery keeps trying.
+            ConnectionState.Connecting, ConnectionState.AwaitingApproval,
+            ConnectionState.Reconnecting -> Unit
         }
     }
 

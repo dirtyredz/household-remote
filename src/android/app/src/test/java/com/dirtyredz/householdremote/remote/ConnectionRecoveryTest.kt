@@ -26,9 +26,9 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * Real-socket recovery against a loopback TLS fake TV with the production certificate pin.
- * Reproduces dk-4bbfb674: a graceful close or abrupt cut must reconnect on its own with the
- * saved token and certificate, and the next key must reach the TV exactly once.
+ * Real-socket recovery against a loopback TLS fake TV with the production certificate pin
+ * and OkHttp heartbeat. Reproduces dk-4bbfb674: a graceful close or abrupt cut must reconnect
+ * on its own with the saved token and certificate, and the next key must arrive exactly once.
  */
 class ConnectionRecoveryTest {
     private class Memory : Credentials {
@@ -47,11 +47,8 @@ class ConnectionRecoveryTest {
 
     private val tv = Tv("fake", "Fake", "test", "AA:BB:CC:DD:EE:FF", "127.0.0.1")
 
-    @Test fun gracefulDropReconnectsAutomatically() = dropAndRecover(abrupt = false)
-
-    @Test fun abruptDropReconnectsAutomatically() = dropAndRecover(abrupt = true)
-
-    private fun dropAndRecover(abrupt: Boolean) {
+    /** A paired fake TV behind an optional fault proxy, with the app's session and dispatcher. */
+    private inner class Harness(timing: SessionTiming, proxied: Boolean) : AutoCloseable {
         val certificate = HeldCertificate.Builder().commonName("Fake TV").build()
         val store = Memory().apply {
             val trust = TvTrust(null, true)
@@ -59,31 +56,33 @@ class ConnectionRecoveryTest {
             value = Credential("saved-token", trust.observed!!)
         }
         val saved = store.value
-        val executor = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-        val scope = CoroutineScope(SupervisorJob() + executor)
+        private val executor = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+        private val scope = CoroutineScope(SupervisorJob() + executor)
         val states = LinkedBlockingQueue<ConnectionState>()
         val peers = LinkedBlockingQueue<WebSocket>()
         val keys = LinkedBlockingQueue<String>()
+        val server = MockWebServer()
         lateinit var dispatcher: KeyDispatcher
         val session = RemoteSession(scope, store, { status ->
             if (status.ready) dispatcher.start()
             states.add(status.state)
-        }, { dispatcher.cancel() })
-        dispatcher = KeyDispatcher(scope, session::send) {}
-        fun awaitConnected() {
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-            while (System.nanoTime() < deadline) {
-                if (states.poll(100, TimeUnit.MILLISECONDS) == ConnectionState.Connected) return
-            }
-            fail("No automatic Connected within 5 s")
-        }
-        MockWebServer().use { server ->
+        }, { dispatcher.cancel() }, timing)
+        val proxy: FaultProxy?
+
+        init {
+            dispatcher = KeyDispatcher(scope, session::send, {})
             server.useHttps(
                 HandshakeCertificates.Builder().heldCertificate(
                     certificate
                 ).build().sslSocketFactory()
             )
-            fun response() = MockResponse.Builder().webSocketUpgrade(object : WebSocketListener() {
+            repeat(3) { server.enqueue(tvResponse()) }
+            server.start()
+            proxy = if (proxied) FaultProxy(server.port) else null
+        }
+
+        private fun tvResponse() = MockResponse.Builder().webSocketUpgrade(
+            object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     peers.add(webSocket)
                     webSocket.send("""{"event":"ms.channel.connect","data":{}}""")
@@ -94,34 +93,101 @@ class ConnectionRecoveryTest {
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                     webSocket.close(code, null)
                 }
-            }).build()
-            server.enqueue(response())
-            server.enqueue(response())
-            server.start()
-            val proxy = if (abrupt) FaultProxy(server.port) else null
-            try {
-                runBlocking(executor) { session.connect(tv, false, proxy?.port ?: server.port) }
-                awaitConnected()
-                assertEquals("saved-token", server.takeRequest().url.queryParameter("token"))
-                val peer = peers.poll(5, TimeUnit.SECONDS)!!
-                if (abrupt) proxy!!.drop() else peer.close(1000, "simulated idle drop")
-                awaitConnected()
-                assertEquals(
-                    "the automatic attempt reuses the saved token",
-                    "saved-token",
-                    server.takeRequest(1, TimeUnit.SECONDS)!!.url.queryParameter("token")
-                )
-                assertTrue(runBlocking(executor) { dispatcher.tap("KEY_HOME") })
-                assertEquals(SamsungProtocol.key("KEY_HOME"), keys.poll(5, TimeUnit.SECONDS))
-                assertNull("delivered exactly once", keys.poll(300, TimeUnit.MILLISECONDS))
-                assertEquals(saved, store.value)
-                assertEquals(0, store.removals)
-            } finally {
-                runBlocking(executor) { session.disconnect() }
-                scope.cancel()
-                executor.close()
-                proxy?.close()
             }
+        ).build()
+
+        fun <T> onSession(block: () -> T): T = runBlocking(executor) { block() }
+
+        fun connect() {
+            onSession { session.connect(tv, false, proxy?.port ?: server.port) }
+            await(ConnectionState.Connected)
+            assertEquals("saved-token", server.takeRequest().url.queryParameter("token"))
+        }
+
+        fun await(expected: ConnectionState, seconds: Long = 5) {
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds)
+            while (System.nanoTime() < deadline) {
+                if (states.poll(50, TimeUnit.MILLISECONDS) == expected) return
+            }
+            fail("No $expected within $seconds s")
+        }
+
+        override fun close() {
+            onSession { session.disconnect() }
+            scope.cancel()
+            executor.close()
+            proxy?.close()
+            server.close()
+        }
+    }
+
+    @Test fun gracefulDropReconnectsAutomatically() = dropAndRecover(abrupt = false)
+
+    @Test fun abruptDropReconnectsAutomatically() = dropAndRecover(abrupt = true)
+
+    private fun dropAndRecover(abrupt: Boolean) = Harness(SessionTiming(), abrupt).use { h ->
+        h.connect()
+        val peer = h.peers.poll(5, TimeUnit.SECONDS)!!
+        val dropped = System.nanoTime()
+        if (abrupt) h.proxy!!.drop() else peer.close(1000, "simulated idle drop")
+        h.await(ConnectionState.Reconnecting)
+        assertTrue("one fresh key may wait", h.onSession { h.dispatcher.hold("KEY_HOME") })
+        h.await(ConnectionState.Connected)
+        val recoveredMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - dropped)
+        assertTrue("recovered in $recoveredMs ms", recoveredMs < 5_000)
+        assertEquals(
+            "the automatic attempt reuses the saved token",
+            "saved-token",
+            h.server.takeRequest(1, TimeUnit.SECONDS)!!.url.queryParameter("token")
+        )
+        assertEquals(SamsungProtocol.key("KEY_HOME"), h.keys.poll(5, TimeUnit.SECONDS))
+        assertNull(
+            "the held key is delivered exactly once",
+            h.keys.poll(300, TimeUnit.MILLISECONDS)
+        )
+        assertTrue(h.onSession { h.dispatcher.tap("KEY_UP") })
+        assertEquals(SamsungProtocol.key("KEY_UP"), h.keys.poll(5, TimeUnit.SECONDS))
+        assertNull(h.keys.poll(300, TimeUnit.MILLISECONDS))
+        assertEquals(h.saved, h.store.value)
+        assertEquals(0, h.store.removals)
+        println("RECOVERY abrupt=$abrupt recoveredMs=$recoveredMs")
+    }
+
+    @Test fun heartbeatDetectsASilentPeerAndRecovers() = Harness(
+        SessionTiming(pingIntervalMs = 200, attemptTimeoutMs = 1_000, backoffMs = listOf(100)),
+        true
+    ).use { h ->
+        h.connect()
+        h.proxy!!.freeze()
+        val frozen = System.nanoTime()
+        // TCP stays open; only the missing pong can reveal the dead peer.
+        h.await(ConnectionState.Reconnecting, seconds = 3)
+        val detectedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - frozen)
+        assertTrue("detected in $detectedMs ms", detectedMs < 1_500)
+        h.proxy!!.thaw()
+        h.await(ConnectionState.Connected)
+        assertTrue(h.onSession { h.dispatcher.tap("KEY_DOWN") })
+        assertEquals(SamsungProtocol.key("KEY_DOWN"), h.keys.poll(5, TimeUnit.SECONDS))
+        println("HEARTBEAT pingMs=200 detectedMs=$detectedMs")
+    }
+
+    @Test fun responsivePeerStaysConnectedAcrossManyPingIntervals() =
+        Harness(SessionTiming(pingIntervalMs = 100), false).use { h ->
+            h.connect()
+            assertNull("no drop over 8 intervals", h.states.poll(800, TimeUnit.MILLISECONDS))
+            assertTrue(h.onSession { h.dispatcher.tap("KEY_LEFT") })
+            assertEquals(SamsungProtocol.key("KEY_LEFT"), h.keys.poll(5, TimeUnit.SECONDS))
+            assertEquals("only the original attempt", 1, h.server.requestCount)
+        }
+
+    @Test fun productionClientCarriesTheHeartbeat() {
+        val client = TvTrust("fake-pin", false).client(SessionTiming().pingIntervalMs)
+        try {
+            assertEquals(15_000, client.pingIntervalMillis)
+            assertTrue("HTTP retries stay off", !client.retryOnConnectionFailure)
+        } finally {
+            client.connectionPool.evictAll()
+            client.dispatcher.executorService.shutdown()
         }
     }
 }

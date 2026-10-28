@@ -18,6 +18,8 @@ Use `ktlintFormat` only to format source before the gate. If cached pinned Maven
 
 Before a Gradle build inspect `Get-CimInstance Win32_Process` command lines for other Android builds. Use no-daemon and in-process Kotlin compilation; stop only processes started by this work.
 
+Connection recovery is covered inside `testRemoteDebugUnitTest`/`testOwnerDebugUnitTest` by loopback fake peers only (never a TV): `ConnectionRecoveryTest` (real TLS + pin through `FaultProxy`: graceful close, abrupt cut, frozen half-open peer for the heartbeat), `RecoveryPolicyTest` (virtual-time backoff, window, standby/background/selection cancellation) and `PendingKeyTest`. To iterate on just those, add `--tests '*ConnectionRecoveryTest' --tests '*RecoveryPolicyTest' --tests '*PendingKeyTest' --tests '*SessionTest'` to a `testRemoteDebugUnitTest` run.
+
 # Compose UI instrumentation (separate from the fast gate)
 
 Only when a device or emulator is already attached (`adb devices`), with the same temp/daemon-registry setup as above:
@@ -37,4 +39,5 @@ Record phone, model and build SHA in the Docket item.
 - Wake progress, Wi-Fi off, readiness timeout and pairing/connection failure each show an understandable message.
 - Switching TVs or backgrounding during "Turning on…" never affects the previous TV afterwards.
 - D-pad, Back/Home/Source, volume, mute, channel, haptics, calibrated shortcuts and cancellation behave correctly.
+- Connection recovery (dk-4bbfb674; record times): leave the remote open and idle for 15 minutes, then press a key; it works without Reconnect. Toggle the phone's Wi-Fi off and on with the remote open: the header shows "Reconnecting…", then "Connected" without any tap; a single D-pad press made while it reads "Reconnecting…" moves the TV once. Keep Wi-Fi off past a minute: "TV unavailable — check Wi-Fi or Wake"; one press after Wi-Fi returns reconnects. "Turn off" leaves the app at Offline/"Standby sent" and it never reconnects on its own. Screen off/on and switching TVs reconnect only the selected TV, and nothing re-pairs.
 - TalkBack, large text and a short screen remain usable (lower controls scroll; header and power stay put).

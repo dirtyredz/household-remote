@@ -144,6 +144,17 @@ class PowerControllerTest {
         assertTrue(h.controller.state.idle)
     }
 
+    @Test fun wokenTvMayNeedRecoveryAttemptsButExhaustionIsExplained() = runTest {
+        val h = harness()
+        h.controller.toggle(living, connected = false)
+        runCurrent()
+        h.controller.onConnection(ConnectionStatus(ConnectionState.Reconnecting, "Reconnecting…"))
+        assertEquals(PowerPhase.Connecting, h.controller.state.phase)
+        h.controller.onConnection(ConnectionStatus(ConnectionState.Unavailable, "Unavailable"))
+        assertEquals(PowerController.CONNECT_FAILED, h.controller.state.error)
+        assertTrue(h.controller.state.idle)
+    }
+
     @Test fun backgroundedRouteEndsConnectingWithoutError() = runTest {
         val h = harness()
         h.link.connectAllowed = false

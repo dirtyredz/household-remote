@@ -47,6 +47,8 @@ class RemoteCallbacks(
 fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modifier = Modifier) {
     val selected = state.selected != null
     val enabled = state.inputEnabled
+    // Ordinary keys stay live while reconnecting so one fresh key can wait; shortcuts do not.
+    val keys = state.keysEnabled
     Column(
         modifier
             .fillMaxSize()
@@ -74,9 +76,9 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            DirectionPad(enabled, callbacks.onKey)
-            NavigationActions(enabled, callbacks.onKey)
-            AudioChannelRow(enabled, callbacks.onKey)
+            DirectionPad(keys, callbacks.onKey)
+            NavigationActions(keys, callbacks.onKey)
+            AudioChannelRow(keys, callbacks.onKey)
             ShortcutControls(
                 configured = state.configured,
                 enabled = enabled,

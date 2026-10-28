@@ -22,4 +22,15 @@ data class RemoteState(
     /** Ordinary keys and shortcuts: a usable session, no shortcut, no power work or off intent. */
     val inputEnabled: Boolean
         get() = selected != null && ready && !busy && power.idle && !power.standbySent
+
+    /**
+     * Ordinary navigation/volume keys: usable now, or one fresh key may wait for automatic
+     * recovery. Shortcuts, Exit and standby stay on [inputEnabled].
+     */
+    val keysEnabled: Boolean
+        get() = inputEnabled ||
+            (
+                selected != null && connection.recoverable && !busy && power.idle &&
+                    !power.standbySent
+                )
 }

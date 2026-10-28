@@ -70,7 +70,15 @@ fun powerPresentation(
     }
 }
 
-enum class ConnectionLabel { SelectTv, Connected, Connecting, ApproveOnTv, Offline }
+enum class ConnectionLabel {
+    SelectTv,
+    Connected,
+    Connecting,
+    Reconnecting,
+    ApproveOnTv,
+    Unavailable,
+    Offline
+}
 
 fun connectionLabel(hasSelection: Boolean, connection: ConnectionState): ConnectionLabel =
     if (!hasSelection) {
@@ -79,7 +87,9 @@ fun connectionLabel(hasSelection: Boolean, connection: ConnectionState): Connect
         when (connection) {
             ConnectionState.Connected -> ConnectionLabel.Connected
             ConnectionState.Connecting -> ConnectionLabel.Connecting
+            ConnectionState.Reconnecting -> ConnectionLabel.Reconnecting
             ConnectionState.AwaitingApproval -> ConnectionLabel.ApproveOnTv
+            ConnectionState.Unavailable -> ConnectionLabel.Unavailable
             ConnectionState.Offline -> ConnectionLabel.Offline
         }
     }

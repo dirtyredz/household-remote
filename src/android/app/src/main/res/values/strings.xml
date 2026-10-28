@@ -7,7 +7,9 @@
     <string name="connection_select_tv">Select a TV</string>
     <string name="connection_connected">Connected</string>
     <string name="connection_connecting">Connecting…</string>
+    <string name="connection_reconnecting">Reconnecting…</string>
     <string name="connection_approve">Approve on TV</string>
+    <string name="connection_unavailable">TV unavailable — check Wi-Fi or Wake</string>
     <string name="connection_offline">Offline</string>
 
     <!-- Power: the label is the action; the status is inferred, never panel telemetry -->

@@ -11,6 +11,7 @@ import com.dirtyredz.householdremote.inventory.Tv
 import com.dirtyredz.householdremote.power.PowerController
 import com.dirtyredz.householdremote.power.PowerLink
 import com.dirtyredz.householdremote.power.PowerState
+import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
@@ -73,12 +74,20 @@ class RemoteViewModel(
             viewModelScope,
             credentials,
             { status ->
+                val wasReady = mutable.value.ready
                 mutable.value = mutable.value.copy(
                     connection = status,
                     message = status.message,
                     busy = false
                 )
-                if (status.ready) dispatcher.start()
+                when {
+                    // Only a new usable session starts input; a held fresh key goes out once.
+                    status.ready && !wasReady -> dispatcher.start()
+
+                    status.state == ConnectionState.Offline -> dispatcher.discardPending()
+
+                    else -> Unit
+                }
                 power.onConnection(status)
             },
             { dispatcher.cancel() }
@@ -102,6 +111,8 @@ class RemoteViewModel(
                 }
                 override fun standby(): Boolean {
                     mutable.value = mutable.value.copy(busy = false)
+                    // Deliberate standby: the drop that follows is not recovered automatically.
+                    session.suppressRecovery()
                     return dispatcher.standby()
                 }
             },
@@ -112,13 +123,14 @@ class RemoteViewModel(
     fun start() {
         foreground = true
         refresh()
-        state.value.selected?.let { session.connect(it) }
+        state.value.selected?.let { session.ensureConnected(it) }
     }
 
     fun stop() {
         foreground = false
         operation?.cancel()
         power.reset()
+        dispatcher.discardPending()
         session.disconnect()
         mutable.value = mutable.value.copy(busy = false)
     }
@@ -142,6 +154,7 @@ class RemoteViewModel(
 
     private fun disconnectForSelection() {
         power.reset()
+        dispatcher.discardPending()
         session.disconnect()
         mutable.value = mutable.value.copy(busy = false)
     }
@@ -156,6 +169,7 @@ class RemoteViewModel(
     fun connect(pair: Boolean) {
         operation?.cancel()
         power.reset()
+        dispatcher.discardPending()
         if (foreground) state.value.selected?.let { session.connect(it, pair) }
     }
 
@@ -201,11 +215,19 @@ class RemoteViewModel(
     }
 
     fun tap(key: String) {
-        if (!state.value.inputEnabled || !dispatcher.tap(key)) {
-            mutable.value = mutable.value.copy(
-                message = "Input unavailable; connect or cancel sequence"
-            )
+        val current = state.value
+        if (current.inputEnabled) {
+            if (!dispatcher.tap(key)) message(INPUT_UNAVAILABLE)
+            return
         }
+        if (!foreground || !current.keysEnabled) return message(INPUT_UNAVAILABLE)
+        // Recovery: one fresh key may wait; a tap after recovery ran out starts a new window.
+        session.resumeRecovery()
+        message(if (dispatcher.hold(key)) KEY_HELD else KEY_REJECTED)
+    }
+
+    private fun message(text: String) {
+        mutable.value = mutable.value.copy(message = text)
     }
 
     /** One power activation; intent is decided from the current session and off intent. */
@@ -245,8 +267,15 @@ class RemoteViewModel(
 
     override fun onCleared() {
         power.reset()
+        dispatcher.discardPending()
         session.disconnect()
         probe.close()
         super.onCleared()
+    }
+
+    private companion object {
+        const val INPUT_UNAVAILABLE = "Input unavailable; connect or cancel sequence"
+        const val KEY_HELD = "Reconnecting; key will send when connected"
+        const val KEY_REJECTED = "Still reconnecting; key not sent"
     }
 }

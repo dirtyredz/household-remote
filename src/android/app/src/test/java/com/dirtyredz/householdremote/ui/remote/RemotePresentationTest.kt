@@ -68,5 +68,21 @@ class RemotePresentationTest {
             connectionLabel(true, ConnectionState.AwaitingApproval)
         )
         assertEquals(ConnectionLabel.Offline, connectionLabel(true, ConnectionState.Offline))
+        assertEquals(
+            ConnectionLabel.Reconnecting,
+            connectionLabel(true, ConnectionState.Reconnecting)
+        )
+        assertEquals(
+            ConnectionLabel.Unavailable,
+            connectionLabel(true, ConnectionState.Unavailable)
+        )
+    }
+
+    @Test fun recoveringSessionIsNeverShownAsOn() {
+        for (state in listOf(ConnectionState.Reconnecting, ConnectionState.Unavailable)) {
+            val power = powerPresentation(true, state, PowerState())
+            assertEquals(PowerLabel.TurnOn, power.label)
+            assertEquals(PowerStatus.OffOrUnreachable, power.status)
+        }
     }
 }

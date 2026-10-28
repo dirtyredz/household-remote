@@ -2,9 +2,11 @@ package com.dirtyredz.householdremote
 
 import com.dirtyredz.householdremote.discovery.TvInfoClient
 import com.dirtyredz.householdremote.inventory.Tv
+import com.dirtyredz.householdremote.remote.ConnectionFailure
 import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.remote.SamsungProtocol
+import com.dirtyredz.householdremote.remote.SessionTiming
 import com.dirtyredz.householdremote.security.Credential
 import com.dirtyredz.householdremote.security.Credentials
 import com.dirtyredz.householdremote.security.TvTrust
@@ -116,7 +118,6 @@ class SessionTest {
             try {
                 session.connect(tv, true, server.port)
                 awaitStatus("Connected")
-                awaitStatus("Connected")
                 assertEquals("first", store.value!!.token)
                 assertTrue(session.send(SamsungProtocol.key("KEY_HOME")))
                 assertEquals(SamsungProtocol.key("KEY_HOME"), received.poll(3, TimeUnit.SECONDS))
@@ -133,10 +134,10 @@ class SessionTest {
                 assertFalse(session.send(SamsungProtocol.key("KEY_HOME")))
                 session.disconnect()
                 assertEquals(
-                    "Typed transitions; explicit disconnect reports Offline once",
+                    "Typed transitions; a repeated connect event on a live socket is not " +
+                        "re-reported; explicit disconnect reports Offline once",
                     listOf(
                         ConnectionState.AwaitingApproval,
-                        ConnectionState.Connected,
                         ConnectionState.Connected,
                         ConnectionState.Offline,
                         ConnectionState.Connecting,
@@ -182,17 +183,22 @@ class SessionTest {
             server.start()
             val store = Memory().apply { value = Credential("old-token", observed) }
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-            val failed = LinkedBlockingQueue<String>()
+            val failed = LinkedBlockingQueue<ConnectionFailure>()
+            val states = LinkedBlockingQueue<ConnectionState>()
             val session =
                 RemoteSession(scope, store, { status ->
-                    if (status.message.startsWith("Connection failed")) {
-                        assertEquals(ConnectionState.Offline, status.state)
-                        failed.add(status.message)
-                    }
-                }, {})
+                    states.add(status.state)
+                    status.failure?.let(failed::add)
+                }, {}, SessionTiming(backoffMs = listOf(50)))
             try {
                 session.connect(tv, false, server.port)
-                assertNotNull(failed.poll(5, TimeUnit.SECONDS))
+                assertEquals(ConnectionFailure.TrustChanged, failed.poll(5, TimeUnit.SECONDS))
+                Thread.sleep(500)
+                assertEquals(
+                    "a changed pin is terminal: never retried, never re-paired",
+                    listOf(ConnectionState.Connecting, ConnectionState.Offline),
+                    states.toList()
+                )
                 assertEquals(observed, store.value!!.certificate)
                 assertEquals("old-token", store.value!!.token)
                 assertFalse(session.send(SamsungProtocol.key("KEY_HOME")))
@@ -229,9 +235,9 @@ class SessionTest {
                     ) {
                         timedOut.add(status.message)
                     }
-                }, { cancelled++ })
+                }, { cancelled++ }, SessionTiming(approvalMs = 300))
             try {
-                session.connect(tv, true, server.port, 300)
+                session.connect(tv, true, server.port)
                 assertNotNull(timedOut.poll(5, TimeUnit.SECONDS))
                 assertEquals(
                     listOf(ConnectionState.AwaitingApproval, ConnectionState.Offline),

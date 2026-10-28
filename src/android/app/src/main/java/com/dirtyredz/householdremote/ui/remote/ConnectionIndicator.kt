@@ -34,7 +34,9 @@ fun ConnectionIndicator(label: ConnectionLabel, modifier: Modifier = Modifier) {
             ConnectionLabel.SelectTv -> R.string.connection_select_tv
             ConnectionLabel.Connected -> R.string.connection_connected
             ConnectionLabel.Connecting -> R.string.connection_connecting
+            ConnectionLabel.Reconnecting -> R.string.connection_reconnecting
             ConnectionLabel.ApproveOnTv -> R.string.connection_approve
+            ConnectionLabel.Unavailable -> R.string.connection_unavailable
             ConnectionLabel.Offline -> R.string.connection_offline
         }
     )
@@ -52,10 +54,12 @@ fun ConnectionIndicator(label: ConnectionLabel, modifier: Modifier = Modifier) {
                     Modifier.size(10.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape)
                 )
 
-                ConnectionLabel.Connecting, ConnectionLabel.ApproveOnTv ->
+                ConnectionLabel.Connecting, ConnectionLabel.Reconnecting,
+                ConnectionLabel.ApproveOnTv ->
                     CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
 
-                ConnectionLabel.Offline, ConnectionLabel.SelectTv -> Box(
+                ConnectionLabel.Offline, ConnectionLabel.Unavailable,
+                ConnectionLabel.SelectTv -> Box(
                     Modifier.size(
                         10.dp
                     ).border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)

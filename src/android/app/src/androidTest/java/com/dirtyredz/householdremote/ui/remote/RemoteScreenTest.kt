@@ -112,6 +112,18 @@ class RemoteScreenTest {
             )
         )
         indicator.assertTextContains(text(R.string.connection_approve))
+        show(
+            connected.copy(
+                connection = ConnectionStatus(ConnectionState.Reconnecting, "Reconnecting…")
+            )
+        )
+        indicator.assertTextContains(text(R.string.connection_reconnecting))
+        show(
+            connected.copy(
+                connection = ConnectionStatus(ConnectionState.Unavailable, "Unavailable")
+            )
+        )
+        indicator.assertTextContains(text(R.string.connection_unavailable))
         show(connected.copy(connection = ConnectionStatus.offline("Disconnected")))
         indicator.assertTextContains(text(R.string.connection_offline))
         show(connected.copy(selected = null))
@@ -131,6 +143,18 @@ class RemoteScreenTest {
             }
         }
         assertTrue(keys.isEmpty())
+    }
+
+    @Test fun ordinaryKeysStayLiveWhileReconnectingButShortcutsDoNot() {
+        mount()
+        show(
+            connected.copy(
+                connection = ConnectionStatus(ConnectionState.Reconnecting, "Reconnecting…")
+            )
+        )
+        rule.onNodeWithTag("key_KEY_UP").performScrollTo().assertIsEnabled().performClick()
+        rule.onNodeWithTag("shortcut_Netflix").performScrollTo().assertIsNotEnabled()
+        assertEquals(listOf("KEY_UP"), keys)
     }
 
     @Test fun uncalibratedShortcutsAreDisabledBesideCalibrationAndSequencesCancel() {
