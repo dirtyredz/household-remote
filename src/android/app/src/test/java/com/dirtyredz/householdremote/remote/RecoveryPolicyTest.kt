@@ -351,4 +351,85 @@ class RecoveryPolicyTest {
         assertTrue("never resent on the new socket", h.last.sent.isEmpty())
         assertNull(h.statuses.last().failure)
     }
+
+    @Test fun losingWifiParksRecoveryUntilWifiReturns() = runTest {
+        val h = harness()
+        connected(h)
+        h.last.drop() // the socket dies with the phone's Wi-Fi
+        runCurrent()
+        assertEquals(ConnectionState.Reconnecting, h.state)
+        h.session.networkChanged(false)
+        runCurrent()
+        assertEquals(ConnectionState.Unavailable, h.state)
+        assertEquals(ConnectionStatus.NO_WIFI, h.statuses.last().message)
+        assertEquals(0, h.live)
+        advanceTimeBy(300_000)
+        runCurrent()
+        assertEquals("no attempts without Wi-Fi", 1, h.sockets.size)
+        assertFalse("a tap cannot restart recovery without Wi-Fi", h.session.resumeRecovery())
+
+        h.session.networkChanged(true)
+        runCurrent()
+        assertEquals(ConnectionState.Reconnecting, h.state)
+        assertEquals("one immediate attempt when Wi-Fi returns", 2, h.sockets.size)
+        h.last.connectEvent()
+        runCurrent()
+        assertEquals(ConnectionState.Connected, h.state)
+        assertEquals(0, h.store.removals)
+    }
+
+    @Test fun aDropWithoutWifiParksInsteadOfRetrying() = runTest {
+        val h = harness()
+        connected(h)
+        h.session.networkChanged(false)
+        runCurrent()
+        assertEquals(ConnectionState.Unavailable, h.state)
+        assertTrue("the live socket is torn down", h.last.cancelled)
+        h.last.drop() // a late close from the dead socket is inert
+        advanceTimeBy(120_000)
+        runCurrent()
+        assertEquals(1, h.sockets.size)
+        assertEquals(ConnectionState.Unavailable, h.state)
+    }
+
+    @Test fun connectWithoutWifiWaitsAndNeverStartsPairing() = runTest {
+        val h = harness()
+        h.session.networkChanged(false)
+        h.session.connect(living, pairing = true)
+        h.session.ensureConnected(living)
+        runCurrent()
+        assertEquals(0, h.sockets.size)
+        assertEquals(0, h.store.removals)
+        assertEquals(ConnectionStatus.NO_WIFI, h.statuses.last().message)
+        h.session.networkChanged(true)
+        runCurrent()
+        assertEquals(1, h.sockets.size)
+        assertEquals(
+            "saved credentials, not a pairing attempt",
+            "saved",
+            h.last.url.queryParameter("token")
+        )
+        assertEquals(0, h.store.removals)
+    }
+
+    @Test fun terminalStatesAndDisconnectAreNotResumedByWifi() = runTest {
+        val h = harness()
+        connected(h)
+        h.session.suppressRecovery()
+        h.last.drop() // after standby
+        runCurrent()
+        h.session.networkChanged(false)
+        h.session.networkChanged(true)
+        runCurrent()
+        assertEquals(ConnectionState.Offline, h.state)
+        assertEquals(1, h.sockets.size)
+
+        connected(h)
+        h.session.networkChanged(false)
+        h.session.disconnect() // backgrounded while parked
+        h.session.networkChanged(true)
+        runCurrent()
+        assertEquals(ConnectionState.Offline, h.state)
+        assertEquals(2, h.sockets.size)
+    }
 }

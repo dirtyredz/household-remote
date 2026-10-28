@@ -50,5 +50,6 @@ data class ConnectionStatus(
         const val PAIRING_FAILED = "Connection failed; check the TV and pair again"
         const val AFTER_STANDBY = "Disconnected after standby"
         const val DISCONNECTED = "Disconnected"
+        const val NO_WIFI = "Phone not on Wi-Fi"
     }
 }

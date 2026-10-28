@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
  * stale work after a replacement is inert. A transient drop retries with [SessionTiming]
  * backoff, one attempt at a time, inside a bounded window; trust, pairing and protocol
  * failures never retry. Input is cancelled on every teardown and never replayed here.
+ * While the phone has no Wi-Fi ([networkChanged] false) nothing is attempted: the target is
+ * parked as Unavailable, and one fresh recovery window starts when Wi-Fi returns.
  * All methods and callbacks run on [scope]'s (serialized) dispatcher.
  */
 class RemoteSession(
@@ -37,6 +39,8 @@ class RemoteSession(
     private var recover = true
     private var failures = 0
     private var token = ""
+    private var network = true
+    private var parked = false
     private var attemptTimer: Job? = null
     private var stableTimer: Job? = null
     private var retry: Job? = null
@@ -50,6 +54,8 @@ class RemoteSession(
         target = Target(tv, port)
         recover = true
         failures = 0
+        // No Wi-Fi: remember the TV, but never start pairing (it discards saved credentials).
+        if (!network) return park()
         open(pairing)
     }
 
@@ -58,7 +64,7 @@ class RemoteSession(
      * repeated start never restarts input or cancels a running shortcut.
      */
     fun ensureConnected(tv: Tv, port: Int = DEFAULT_PORT) {
-        if (target == Target(tv, port) && state in active) return
+        if (target == Target(tv, port) && (state in active || parked)) return
         connect(tv, port = port)
     }
 
@@ -67,10 +73,30 @@ class RemoteSession(
      * otherwise, so repeated taps can neither add attempts nor extend a running window.
      */
     fun resumeRecovery(): Boolean {
-        if (state != ConnectionState.Unavailable || target == null) return false
+        if (state != ConnectionState.Unavailable || target == null || !network) return false
         failures = 0
         beginRecovery(firstWaitMs = 0)
         return true
+    }
+
+    /**
+     * The phone's Wi-Fi came or went. Losing it tears down any attempt or recovery for the
+     * target and parks it; regaining it starts one fresh recovery window for a parked target.
+     * Terminal Offline states (pairing problems, the drop after standby) and a running
+     * pairing approval are left alone.
+     */
+    fun networkChanged(available: Boolean) {
+        if (available == network) return
+        network = available
+        if (!available) {
+            val parkable = state != ConnectionState.Offline &&
+                state != ConnectionState.AwaitingApproval
+            if (target != null && parkable) park()
+        } else if (parked) {
+            parked = false
+            failures = 0
+            beginRecovery(firstWaitMs = 0)
+        }
     }
 
     /** The next drop is terminal: standby is deliberate, and recovery must not fight it. */
@@ -191,6 +217,7 @@ class RemoteSession(
             failure != ConnectionFailure.Transport -> terminal(failure)
             wasPairing -> terminal(null, ConnectionStatus.PAIRING_FAILED)
             !recover -> terminal(null, ConnectionStatus.AFTER_STANDBY)
+            !network -> park()
             else -> beginRecovery(timing.backoff(failures))
         }
     }
@@ -213,6 +240,15 @@ class RemoteSession(
                 open(false)
             }
         }
+    }
+
+    /** Holds the target with no attempt, timer or window until Wi-Fi returns. */
+    private fun park() {
+        owner++
+        stopRecovery()
+        teardownAttempt()
+        parked = true
+        emit(ConnectionState.Unavailable, ConnectionStatus.NO_WIFI)
     }
 
     private fun exhausted() {
@@ -251,6 +287,7 @@ class RemoteSession(
 
     private fun stopAll() {
         owner++
+        parked = false
         stopRecovery()
         teardownAttempt()
     }

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.dirtyredz.householdremote.discovery.SsdpDiscovery
 import com.dirtyredz.householdremote.discovery.TvInfoClient
 import com.dirtyredz.householdremote.inventory.TvRepository
+import com.dirtyredz.householdremote.network.AndroidWifiMonitor
 import com.dirtyredz.householdremote.power.MonotonicAwakeClock
 import com.dirtyredz.householdremote.power.PowerController
 import com.dirtyredz.householdremote.power.WakeOnLan
@@ -25,6 +26,7 @@ class RemoteViewModelFactory(private val application: Application) : ViewModelPr
             profiles = ShortcutStore(application),
             probe = probe,
             discovery = SsdpDiscovery(application, probe),
+            wifi = AndroidWifiMonitor(application),
             credentials = TokenStore(application),
             sessionFactory = { scope, credentials, status, cancelled ->
                 RemoteSession(scope, credentials, status, cancelled)
