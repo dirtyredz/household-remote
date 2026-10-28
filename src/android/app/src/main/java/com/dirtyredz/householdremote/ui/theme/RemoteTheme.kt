@@ -15,6 +15,9 @@ import androidx.compose.ui.unit.sp
 /** Charcoal background; keep in step with res/values/remote_colors.xml remote_background. */
 val RemoteBackground = Color(0xFF121417)
 
+/** The power key's fill; white icons on it meet 4.5:1 contrast. */
+val RemotePowerRed = Color(0xFFD32F2F)
+
 private val colors = darkColorScheme(
     primary = Color(0xFF7CC4FA),
     onPrimary = Color(0xFF0B2236),

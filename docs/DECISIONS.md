@@ -7,6 +7,18 @@
 - Updates are manual, forward-only, exact package/flavor and installed-certificate matched. Android package installation remains attended. Release Gradle builds never access the permanent key or 1Password.
 - Shortcut profiles are local and disabled until calibrated while watching the TV. Success means sequence sent, not confirmed launch. Standby is one key with no retry; ordinary taps have no artificial delay.
 
+## ADR: A remote that never scrolls, a red power key, and a Wi-Fi gate (2026-10-28)
+
+Status: accepted (owner phone feedback on v0.2.0, 2026-10-28; Wi-Fi part implements dk-28d77a2d).
+
+Layout: nothing scrolls vertically. `RemoteScreen` is a fixed column whose D-pad takes the remaining height (`weight`), clamped to 150..300 dp so every key keeps the 48 dp floor; below 660 dp of window height (plus 200 dp per +1.0 font scale) the volume/channel rockers become one horizontal 48 dp row and the shortcut row uses 48 dp keys. Control labels step their font down on one line instead of wrapping. A running sequence replaces the shortcut row with Cancel instead of adding a row. Under extreme combinations (e.g. a 568 dp window at 2.0 text) the 48 dp floor wins and the D-pad can clip; that is accepted over shrinking targets.
+
+Power is a 56 dp red circle with a white icon at the top right of the remote area, like a physical remote's power key; its content description is the action and its state description the inference. The full-width card is gone. Power progress, "Standby sent · power off not confirmed", power errors, connection detail (approve on TV, re-pair, pairing failed) and general feedback share one two-line notice slot beside the key, in that priority, so the old bottom status line (which duplicated "Connected") is removed and no message adds layout height. General feedback is transient: the slot hides it after 4 s, and a connection state change clears it. The connection status is centred on its own row beneath the header: at 360 dp its longer states ("TV unavailable — check Wi-Fi or Wake", "Phone not on Wi-Fi" plus its button) do not fit between the TV picker and ⋮.
+
+Wi-Fi: `network/AndroidWifiMonitor` (foreground only) reports whether any Wi-Fi network exists, via a TRANSPORT_WIFI callback without the INTERNET requirement, because the TVs are on the LAN. Without Wi-Fi, `RemoteSession.networkChanged(false)` parks the target as Unavailable ("Phone not on Wi-Fi") with no attempts, timers or window; a connect, including a pairing request, only records the target, so pairing never discards credentials offline. Wi-Fi returning starts one fresh recovery window. Terminal Offline states (after standby, pairing/trust failures) and a running approval are not resumed. Keys and power are disabled while off Wi-Fi; the status row offers the system Wi-Fi panel (Android 10+) or Wi-Fi settings. The monitor is its own component, not ViewModel code (dk-63120852).
+
+Rejected: keeping a scroll container for large text (owner ruling), a Snackbar host (it overlays the shortcuts and needs event plumbing for repeated messages), centring the status inside the header row, gating on the default network only (a VPN or mobile-data default would hide a usable Wi-Fi), and leaving Turn on enabled off Wi-Fi (the wake broadcast cannot leave the phone).
+
 ## ADR: Foreground-only automatic reconnect with a heartbeat (2026-10-28)
 
 Status: accepted (implements the dk-4bbfb674 fix spec, `docs/plans/connection-reconnect.md`).

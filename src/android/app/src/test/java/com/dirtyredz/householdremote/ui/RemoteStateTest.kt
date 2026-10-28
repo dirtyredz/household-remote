@@ -45,4 +45,10 @@ class RemoteStateTest {
         assertFalse(state(ConnectionState.Reconnecting).copy(busy = true).keysEnabled)
         assertFalse(state(ConnectionState.Reconnecting).copy(selected = null).keysEnabled)
     }
+
+    @Test fun noKeyMayWaitWhileThePhoneIsOffWifi() {
+        val parked = state(ConnectionState.Unavailable).copy(onWifi = false)
+        assertFalse("recovery is parked until Wi-Fi returns", parked.keysEnabled)
+        assertTrue(parked.copy(onWifi = true).keysEnabled)
+    }
 }

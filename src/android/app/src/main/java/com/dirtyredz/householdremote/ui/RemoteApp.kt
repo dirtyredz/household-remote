@@ -15,6 +15,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dirtyredz.householdremote.network.openWifiSettings
 import com.dirtyredz.householdremote.ui.remote.RemoteCallbacks
 import com.dirtyredz.householdremote.ui.remote.RemoteScreen
 import com.dirtyredz.householdremote.ui.settings.RemoteSettingsSheet
@@ -33,7 +34,8 @@ private enum class Overlay { Tvs, Actions, Settings, Import, Pairing, Calibratio
  */
 @Composable
 fun RemoteApp(providedModel: RemoteViewModel? = null) {
-    val application = LocalContext.current.applicationContext as Application
+    val context = LocalContext.current
+    val application = context.applicationContext as Application
     val factory = remember(application) { RemoteViewModelFactory(application) }
     val model = providedModel ?: viewModel(factory = factory)
     val state by model.state.collectAsStateWithLifecycle()
@@ -64,7 +66,8 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             onCancelSequence = model::cancelSequence,
             onCalibrate = { open(Overlay.Calibration, boundToTv = true) },
             onPickTv = { open(Overlay.Tvs) },
-            onOverflow = { open(Overlay.Actions) }
+            onOverflow = { open(Overlay.Actions) },
+            onWifiSettings = { openWifiSettings(context) }
         )
     )
     val tv = state.selected

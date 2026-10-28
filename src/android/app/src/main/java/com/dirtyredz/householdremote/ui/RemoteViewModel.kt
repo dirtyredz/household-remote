@@ -8,6 +8,7 @@ import com.dirtyredz.householdremote.inventory.Household
 import com.dirtyredz.householdremote.inventory.HouseholdImport
 import com.dirtyredz.householdremote.inventory.HouseholdRepository
 import com.dirtyredz.householdremote.inventory.Tv
+import com.dirtyredz.householdremote.network.WifiMonitor
 import com.dirtyredz.householdremote.power.PowerController
 import com.dirtyredz.householdremote.power.PowerLink
 import com.dirtyredz.householdremote.power.PowerState
@@ -50,6 +51,7 @@ class RemoteViewModel(
     private val profiles: ShortcutStore,
     private val probe: TvProbe,
     private val discovery: SsdpDiscovery,
+    private val wifi: WifiMonitor,
     credentials: Credentials,
     sessionFactory: RemoteSessionFactory,
     dispatcherFactory: KeyDispatcherFactory,
@@ -74,10 +76,13 @@ class RemoteViewModel(
             viewModelScope,
             credentials,
             { status ->
-                val wasReady = mutable.value.ready
-                mutable.value = mutable.value.copy(
+                val previous = mutable.value
+                val wasReady = previous.ready
+                // The indicator shows the status itself; a state change retires older feedback.
+                val changed = status.state != previous.connection.state
+                mutable.value = previous.copy(
                     connection = status,
-                    message = status.message,
+                    message = if (changed) "" else previous.message,
                     busy = false
                 )
                 when {
@@ -123,11 +128,19 @@ class RemoteViewModel(
     fun start() {
         foreground = true
         refresh()
+        // Reports the current Wi-Fi state first, so the session knows it before connecting.
+        wifi.start(::wifiChanged)
         state.value.selected?.let { session.ensureConnected(it) }
+    }
+
+    private fun wifiChanged(available: Boolean) {
+        mutable.value = mutable.value.copy(onWifi = available)
+        session.networkChanged(available)
     }
 
     fun stop() {
         foreground = false
+        wifi.stop()
         operation?.cancel()
         power.reset()
         dispatcher.discardPending()
@@ -233,6 +246,8 @@ class RemoteViewModel(
     /** One power activation; intent is decided from the current session and off intent. */
     fun togglePower() {
         val tv = state.value.selected ?: return
+        // Wake needs the phone's Wi-Fi broadcast; the control shows the hint instead.
+        if (!state.value.onWifi) return
         power.toggle(tv, state.value.ready)
     }
 
@@ -266,6 +281,7 @@ class RemoteViewModel(
     }
 
     override fun onCleared() {
+        wifi.stop()
         power.reset()
         dispatcher.discardPending()
         session.disconnect()

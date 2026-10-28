@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,11 +37,11 @@ fun NavigationActions(enabled: Boolean, onKey: (String) -> Unit, modifier: Modif
                 modifier = Modifier.weight(1f)
             ) {
                 Column(
-                    Modifier.padding(vertical = 6.dp),
+                    Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(painterResource(item.icon), contentDescription = null)
-                    Text(label, style = MaterialTheme.typography.labelMedium)
+                    FitText(label, MaterialTheme.typography.labelMedium)
                 }
             }
         }

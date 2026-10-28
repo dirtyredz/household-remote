@@ -5,8 +5,8 @@ import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
 
 /**
- * Immutable screen state. [connection] and [power] are independent typed fields; [message]
- * is general feedback only and is never parsed for connection or power state.
+ * Immutable screen state. [connection], [power] and [onWifi] are independent typed fields;
+ * [message] is general feedback only and is never parsed for connection or power state.
  */
 data class RemoteState(
     val tvs: List<Tv> = emptyList(),
@@ -15,7 +15,9 @@ data class RemoteState(
     val connection: ConnectionStatus = ConnectionStatus.initial,
     val busy: Boolean = false,
     val configured: Set<String> = emptySet(),
-    val power: PowerState = PowerState()
+    val power: PowerState = PowerState(),
+    /** The phone has an active Wi-Fi network (the TVs are only reachable over the LAN). */
+    val onWifi: Boolean = true
 ) {
     val ready: Boolean get() = connection.ready
 
@@ -25,12 +27,12 @@ data class RemoteState(
 
     /**
      * Ordinary navigation/volume keys: usable now, or one fresh key may wait for automatic
-     * recovery. Shortcuts, Exit and standby stay on [inputEnabled].
+     * recovery, which needs Wi-Fi. Shortcuts, Exit and standby stay on [inputEnabled].
      */
     val keysEnabled: Boolean
         get() = inputEnabled ||
             (
-                selected != null && connection.recoverable && !busy && power.idle &&
+                selected != null && onWifi && connection.recoverable && !busy && power.idle &&
                     !power.standbySent
                 )
 }
