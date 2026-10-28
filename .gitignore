@@ -16,3 +16,7 @@ config/household.local.json
 *.keystore
 .structure-review-pending*
 .structure-review-paused
+.claude/worktrees/
+docs/plans/*.events.jsonl
+docs/plans/*.job.json
+docs/plans/*.stderr.log

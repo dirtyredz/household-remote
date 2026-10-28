@@ -2,7 +2,7 @@
 id: dk-523ada0b
 type: feature
 created: 2026-10-28
-status: wip
+status: todo
 since: 2026-10-28
 area: ui
 priority: P1
