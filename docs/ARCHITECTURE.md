@@ -14,6 +14,12 @@ Foreground recovery: `RemoteSession` is the only socket and retry owner. It open
 
 Power: `PowerController` (power package, no Compose) decides intent when a press is accepted (usable session → one standby frame via `KeyDispatcher.standby()`; otherwise disconnect → WOL → readiness polling → reconnect), tracks phase/off-intent/error, and binds each completion to an activation generation. Selection, background and explicit reconnect/re-pair reset it. It reaches the session only through the narrow `PowerLink` the ViewModel implements, which reconnects only the still-selected TV while foregrounded.
 
+Wi-Fi gate: `network/AndroidWifiMonitor` (foreground only, any Wi-Fi network, internet not required) feeds `RemoteSession.networkChanged`. With no Wi-Fi the session parks as Unavailable and makes no attempts, `RemoteState` disables keys and power and shows "Phone not on Wi-Fi" with a link to the system Wi-Fi panel; Wi-Fi returning opens one fresh recovery window. A connect without Wi-Fi only remembers the selection and never starts pairing.
+
+Apps: `apps/TvApp` holds the Samsung app IDs (Netflix, Prime Video, Disney+, Plex). A button sends one `ed.apps.launch` over the paired session via `KeyDispatcher.launch`; it is never held or replayed. On each new usable session `apps/AppInstallClient` reads `GET :8001/api/v2/applications/<id>` (private LAN only) so a button greys out only on a definite 404. `apps/LegacyShortcuts` deletes v0.2.0 calibration data once.
+
+Settings: the ⋮ sheet (`ui/settings/RemoteSettingsSheet`) holds quick actions only; `ui/settings/SettingsScreen` is a full-screen page holding App updates.
+
 Release path: CI builds unsigned APK/AAB and provenance, then drafts a release in this public repository. Attended local signing verifies the CI inputs, replaces unsigned draft assets, checks downloaded bytes and publishes last. The app checks this repository manually, downloads to private cache, validates APK metadata and signer, then opens the system installer.
 
 The `remote` and `owner` product flavors have distinct package IDs but the same v1 remote behavior; `owner` conveys audience only and grants no administration authority. Each published `update.json` has schema 1 and exactly one APK record per flavor, binding flavor, package name, forward-only version code/name, byte size, SHA-256, and the canonical release URL. Selection validates that contract before download; installation additionally requires archive package/version and signer set to match the installed app.
