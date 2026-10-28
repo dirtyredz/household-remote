@@ -7,6 +7,7 @@ import com.dirtyredz.householdremote.discovery.SsdpDiscovery
 import com.dirtyredz.householdremote.discovery.TvInfoClient
 import com.dirtyredz.householdremote.inventory.TvRepository
 import com.dirtyredz.householdremote.power.MonotonicAwakeClock
+import com.dirtyredz.householdremote.power.PowerController
 import com.dirtyredz.householdremote.power.WakeOnLan
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
@@ -18,18 +19,27 @@ class RemoteViewModelFactory(private val application: Application) : ViewModelPr
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass == RemoteViewModel::class.java)
         val probe = TvInfoClient()
+        val wake = WakeOnLan(application)
         return RemoteViewModel(
             repository = TvRepository(application),
             profiles = ShortcutStore(application),
             probe = probe,
             discovery = SsdpDiscovery(application, probe),
-            wakeSender = WakeOnLan(application),
             credentials = TokenStore(application),
-            awakeClock = MonotonicAwakeClock,
             sessionFactory = { scope, credentials, status, cancelled ->
                 RemoteSession(scope, credentials, status, cancelled)
             },
-            dispatcherFactory = { scope, send, status -> KeyDispatcher(scope, send, status) }
+            dispatcherFactory = { scope, send, status -> KeyDispatcher(scope, send, status) },
+            powerFactory = { scope, link, changed ->
+                PowerController(
+                    scope,
+                    link,
+                    wake,
+                    probe,
+                    MonotonicAwakeClock,
+                    changed = changed
+                )
+            }
         ) as T
     }
 }

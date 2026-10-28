@@ -17,7 +17,7 @@ import okhttp3.WebSocketListener
 class RemoteSession(
     private val scope: CoroutineScope,
     private val credentials: Credentials,
-    private val status: (String, Boolean) -> Unit,
+    private val status: (ConnectionStatus) -> Unit,
     private val cancelled: () -> Unit
 ) {
     private var generation = 0
@@ -25,31 +25,36 @@ class RemoteSession(
     private var client: OkHttpClient? = null
     private var timeout: Job? = null
     private var ready = false
+    private var state = ConnectionState.Offline
     fun connect(
         tv: Tv,
         pairing: Boolean = false,
         port: Int = 8002,
         approvalMs: Long = SamsungProtocol.APPROVAL_MS
     ) {
-        disconnect()
+        teardown()
         val epoch = generation
         val saved = try {
             if (pairing) null else credentials.get(tv.mac)
         } catch (
             _: Exception
         ) {
-            status("Credentials unavailable; re-pair required", false)
+            emit(ConnectionState.Offline, "Credentials unavailable; re-pair required")
             return
         }
         if (!pairing && saved == null) {
-            status("Pair while watching this TV", false)
+            emit(ConnectionState.Offline, "Pair while watching this TV")
             return
         }
         if (pairing) credentials.remove(tv.mac)
         var currentToken = saved?.token.orEmpty()
         val trust = TvTrust(if (pairing) null else saved?.certificate, pairing)
         client = trust.client()
-        status(if (pairing) "Approve TV Tuneup on TV within 90 seconds" else "Connecting", false)
+        if (pairing) {
+            emit(ConnectionState.AwaitingApproval, "Approve TV Tuneup on TV within 90 seconds")
+        } else {
+            emit(ConnectionState.Connecting, "Connecting")
+        }
         timeout =
             scope.launch {
                 delay(approvalMs)
@@ -84,7 +89,7 @@ class RemoteSession(
                                         currentToken = refreshed
                                         timeout?.cancel()
                                         ready = true
-                                        status("Connected", true)
+                                        emit(ConnectionState.Connected, "Connected")
                                     }
 
                                     "ms.channel.unauthorized" -> finish(
@@ -129,11 +134,21 @@ class RemoteSession(
             )
     }
     fun send(message: String): Boolean = ready && socket?.send(message) == true
-    private fun finish(message: String) {
-        disconnect()
-        status(message, false)
+    private fun emit(next: ConnectionState, message: String) {
+        state = next
+        status(ConnectionStatus(next, message))
     }
+    private fun finish(message: String) {
+        teardown()
+        emit(ConnectionState.Offline, message)
+    }
+
+    /** Explicit disconnect; reports Offline once when a session was active or in progress. */
     fun disconnect() {
+        teardown()
+        if (state != ConnectionState.Offline) emit(ConnectionState.Offline, "Disconnected")
+    }
+    private fun teardown() {
         generation++
         ready = false
         timeout?.cancel()
