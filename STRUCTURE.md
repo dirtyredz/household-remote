@@ -18,7 +18,7 @@
 - `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/remote/`: stateless remote composables (header, connection indicator, power control, D-pad, rockers, navigation row, shortcuts, shared `RemoteButton`) and the pure `RemotePresentation` state mapping.
 - `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/setup/`: TV management sheet, JSON import and pairing dialogs.
 - `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/shortcuts/`: shortcut calibration editor.
-- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/settings/`: secondary settings sheet and the manual update control.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/settings/`: overflow quick-actions sheet, full-screen settings surface, and the manual update control.
 - `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/theme/`: Material 3 dark theme.
 - `src/android/app/src/test/`: offline JVM and fake-server tests.
 - `src/android/app/src/androidTest/`: Compose UI instrumentation tests that mount pure composables with fake state; never the ViewModel, updater or a TV.

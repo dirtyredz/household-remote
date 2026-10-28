@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -17,7 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/** Secondary actions: reconnect, explicit pairing, the Exit key, and manual updates. */
+/** Quick actions shown from the remote's overflow button. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RemoteSettingsSheet(
@@ -26,6 +25,7 @@ fun RemoteSettingsSheet(
     onReconnect: () -> Unit,
     onPair: () -> Unit,
     onExit: () -> Unit,
+    onSettings: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -47,8 +47,7 @@ fun RemoteSettingsSheet(
             OutlinedButton(onClick = onExit, enabled = exitEnabled, modifier = button) {
                 Text("Send Exit")
             }
-            HorizontalDivider()
-            UpdateControl()
+            OutlinedButton(onClick = onSettings, modifier = button) { Text("Settings") }
         }
     }
 }

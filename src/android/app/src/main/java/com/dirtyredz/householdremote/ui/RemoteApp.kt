@@ -18,12 +18,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dirtyredz.householdremote.ui.remote.RemoteCallbacks
 import com.dirtyredz.householdremote.ui.remote.RemoteScreen
 import com.dirtyredz.householdremote.ui.settings.RemoteSettingsSheet
+import com.dirtyredz.householdremote.ui.settings.SettingsDialog
 import com.dirtyredz.householdremote.ui.setup.ImportManifestDialog
 import com.dirtyredz.householdremote.ui.setup.PairingDialog
 import com.dirtyredz.householdremote.ui.setup.TvManagementSheet
 import com.dirtyredz.householdremote.ui.shortcuts.CalibrationDialog
 
-private enum class Overlay { Tvs, Settings, Import, Pairing, Calibration }
+private enum class Overlay { Tvs, Actions, Settings, Import, Pairing, Calibration }
 
 /**
  * Production route: lifecycle-driven start/stop, ViewModel collection, and which sheet or
@@ -63,7 +64,7 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             onCancelSequence = model::cancelSequence,
             onCalibrate = { open(Overlay.Calibration, boundToTv = true) },
             onPickTv = { open(Overlay.Tvs) },
-            onOverflow = { open(Overlay.Settings) }
+            onOverflow = { open(Overlay.Actions) }
         )
     )
     val tv = state.selected
@@ -82,7 +83,7 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             onDismiss = ::close
         )
 
-        Overlay.Settings -> RemoteSettingsSheet(
+        Overlay.Actions -> RemoteSettingsSheet(
             tvName = tv?.name,
             exitEnabled = state.inputEnabled,
             onReconnect = {
@@ -91,8 +92,11 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             },
             onPair = { open(Overlay.Pairing, boundToTv = true) },
             onExit = { model.tap("KEY_EXIT") },
+            onSettings = { open(Overlay.Settings) },
             onDismiss = ::close
         )
+
+        Overlay.Settings -> SettingsDialog(onDismiss = ::close)
 
         Overlay.Import -> ImportManifestDialog(
             onImport = {
