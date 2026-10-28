@@ -14,3 +14,5 @@ local.properties
 *.p12
 config/household.local.json
 *.keystore
+.structure-review-pending*
+.structure-review-paused
