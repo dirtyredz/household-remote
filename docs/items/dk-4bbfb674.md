@@ -2,7 +2,7 @@
 id: dk-4bbfb674
 type: bug
 created: 2026-10-28
-status: todo
+status: wip
 since: 2026-10-28
 area: remote
 priority: P1
