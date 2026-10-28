@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Header and connection status -->
+    <string name="header_choose_tv">Choose a TV</string>
+    <string name="header_picker_description">Selected TV: %1$s. Change TV</string>
+    <string name="header_more">More options</string>
+    <string name="connection_select_tv">Select a TV</string>
+    <string name="connection_connected">Connected</string>
+    <string name="connection_connecting">Connecting…</string>
+    <string name="connection_approve">Approve on TV</string>
+    <string name="connection_offline">Offline</string>
+
+    <!-- Power: the label is the action; the status is inferred, never panel telemetry -->
+    <string name="power_label">Power</string>
+    <string name="power_turn_off">Turn off</string>
+    <string name="power_turn_on">Turn on</string>
+    <string name="power_turning_on">Turning on…</string>
+    <string name="power_connecting">Connecting…</string>
+    <string name="power_turning_off">Turning off…</string>
+    <string name="power_status_select_tv">Select a TV</string>
+    <string name="power_status_on">On · connected</string>
+    <string name="power_status_off">Off or unreachable</string>
+    <string name="power_status_standby_sent">Standby sent</string>
+    <string name="power_status_in_progress">Working…</string>
+    <string name="power_not_confirmed">Power off not confirmed</string>
+
+    <!-- Keys -->
+    <string name="key_up">Up</string>
+    <string name="key_down">Down</string>
+    <string name="key_left">Left</string>
+    <string name="key_right">Right</string>
+    <string name="key_ok">OK</string>
+    <string name="key_back">Back</string>
+    <string name="key_home">Home</string>
+    <string name="key_source">Source</string>
+    <string name="key_mute">Mute</string>
+    <string name="key_volume_up">Volume up</string>
+    <string name="key_volume_down">Volume down</string>
+    <string name="key_channel_up">Channel up</string>
+    <string name="key_channel_down">Channel down</string>
+    <string name="rocker_volume">VOL</string>
+    <string name="rocker_channel">CH</string>
+
+    <!-- Shortcuts -->
+    <string name="shortcuts_title">Apps</string>
+    <string name="shortcuts_calibrate">Calibrate</string>
+    <string name="shortcuts_cancel">Cancel sequence</string>
+</resources>

@@ -1,4 +1,4 @@
-package com.dirtyredz.householdremote.ui
+package com.dirtyredz.householdremote.ui.settings
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text

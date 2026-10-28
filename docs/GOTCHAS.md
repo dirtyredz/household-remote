@@ -4,6 +4,7 @@
 - Pair each phone independently. Shared client name does not imply shared tokens. Two-phone coexistence needs physical acceptance.
 - REST information is unauthenticated. Never trust a discovered IP as identity; WSS pins are keyed by MAC. A changed certificate requires re-pair while watching the correct TV.
 - Multicast may be filtered; manual IP is supported. Wake depends on TV/network settings and a usable Wi-Fi broadcast interface.
+- Offline does not prove off, and standby has no acknowledgment: the remote channel reports no panel power state. "On · connected" means a usable session; "Standby sent" means the socket accepted one KEY_POWER frame. Do not disconnect right after standby (cancelling the socket can drop the queued frame). Wake still depends on the TV's network-standby/Wi-Fi wake settings and a usable Wi-Fi broadcast interface.
 - Home-bar positions and delays drift. Recalibrate while watching; cancel immediately if navigation is wrong.
 - No phone is attached during implementation. Keystore, Android installer, multicast permissions, actual TV response and latency need device acceptance.
 - Gradle's shared daemon registry crosses worktrees: another checkout's `gradlew --stop` can stop a single-use build here. VERIFY.md isolates the registry under `.tmp/gradle-daemon` while retaining the shared dependency cache. Still wait for other builds and never issue global daemon stops. The installed SDK command-line tools emit an SDK XML v4/v3 compatibility warning; no SDK download is needed to address app source failures.

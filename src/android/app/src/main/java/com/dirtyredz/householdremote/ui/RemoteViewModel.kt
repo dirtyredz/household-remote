@@ -8,9 +8,10 @@ import com.dirtyredz.householdremote.inventory.Household
 import com.dirtyredz.householdremote.inventory.HouseholdImport
 import com.dirtyredz.householdremote.inventory.HouseholdRepository
 import com.dirtyredz.householdremote.inventory.Tv
-import com.dirtyredz.householdremote.power.AwakeClock
-import com.dirtyredz.householdremote.power.TvWake
-import com.dirtyredz.householdremote.power.awaitAwake
+import com.dirtyredz.householdremote.power.PowerController
+import com.dirtyredz.householdremote.power.PowerLink
+import com.dirtyredz.householdremote.power.PowerState
+import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.security.Credentials
@@ -27,7 +28,7 @@ import kotlinx.coroutines.launch
 typealias RemoteSessionFactory = (
     CoroutineScope,
     Credentials,
-    (String, Boolean) -> Unit,
+    (ConnectionStatus) -> Unit,
     () -> Unit
 ) -> RemoteSession
 
@@ -37,25 +38,21 @@ typealias KeyDispatcherFactory = (
     (String) -> Unit
 ) -> KeyDispatcher
 
-data class RemoteState(
-    val tvs: List<Tv> = emptyList(),
-    val selected: Tv? = null,
-    val message: String = "Add or discover a TV",
-    val ready: Boolean = false,
-    val busy: Boolean = false,
-    val configured: Set<String> = emptySet()
-)
+typealias PowerControllerFactory = (
+    CoroutineScope,
+    PowerLink,
+    (PowerState) -> Unit
+) -> PowerController
 
 class RemoteViewModel(
     private val repository: HouseholdRepository,
     private val profiles: ShortcutStore,
     private val probe: TvProbe,
     private val discovery: SsdpDiscovery,
-    private val wakeSender: TvWake,
     credentials: Credentials,
-    private val awakeClock: AwakeClock,
     sessionFactory: RemoteSessionFactory,
-    dispatcherFactory: KeyDispatcherFactory
+    dispatcherFactory: KeyDispatcherFactory,
+    powerFactory: PowerControllerFactory
 ) : ViewModel() {
     private var household = repository.load()
     private val mutable = MutableStateFlow(
@@ -67,6 +64,7 @@ class RemoteViewModel(
     val state = mutable.asStateFlow()
     private val dispatcher: KeyDispatcher
     private val session: RemoteSession
+    private val power: PowerController
     private var operation: Job? = null
     private var foreground = false
 
@@ -74,9 +72,14 @@ class RemoteViewModel(
         session = sessionFactory(
             viewModelScope,
             credentials,
-            { message, ready ->
-                mutable.value = mutable.value.copy(message = message, ready = ready, busy = false)
-                if (ready) dispatcher.start()
+            { status ->
+                mutable.value = mutable.value.copy(
+                    connection = status,
+                    message = status.message,
+                    busy = false
+                )
+                if (status.ready) dispatcher.start()
+                power.onConnection(status)
             },
             { dispatcher.cancel() }
         )
@@ -84,6 +87,25 @@ class RemoteViewModel(
             viewModelScope,
             { session.send(it) },
             { message -> mutable.value = mutable.value.copy(message = message, busy = false) }
+        )
+        power = powerFactory(
+            viewModelScope,
+            object : PowerLink {
+                override fun disconnect() {
+                    session.disconnect()
+                    mutable.value = mutable.value.copy(busy = false)
+                }
+                override fun connect(tv: Tv): Boolean {
+                    if (!foreground || state.value.selected?.mac != tv.mac) return false
+                    session.connect(tv)
+                    return true
+                }
+                override fun standby(): Boolean {
+                    mutable.value = mutable.value.copy(busy = false)
+                    return dispatcher.standby()
+                }
+            },
+            { power -> mutable.value = mutable.value.copy(power = power) }
         )
     }
 
@@ -96,8 +118,9 @@ class RemoteViewModel(
     fun stop() {
         foreground = false
         operation?.cancel()
+        power.reset()
         session.disconnect()
-        mutable.value = mutable.value.copy(ready = false, busy = false)
+        mutable.value = mutable.value.copy(busy = false)
     }
 
     private fun refresh() {
@@ -118,8 +141,9 @@ class RemoteViewModel(
     }
 
     private fun disconnectForSelection() {
+        power.reset()
         session.disconnect()
-        mutable.value = mutable.value.copy(ready = false, busy = false)
+        mutable.value = mutable.value.copy(busy = false)
     }
 
     fun select(tv: Tv) {
@@ -131,6 +155,7 @@ class RemoteViewModel(
 
     fun connect(pair: Boolean) {
         operation?.cancel()
+        power.reset()
         if (foreground) state.value.selected?.let { session.connect(it, pair) }
     }
 
@@ -176,11 +201,17 @@ class RemoteViewModel(
     }
 
     fun tap(key: String) {
-        if (!dispatcher.tap(key)) {
+        if (!state.value.inputEnabled || !dispatcher.tap(key)) {
             mutable.value = mutable.value.copy(
                 message = "Input unavailable; connect or cancel sequence"
             )
         }
+    }
+
+    /** One power activation; intent is decided from the current session and off intent. */
+    fun togglePower() {
+        val tv = state.value.selected ?: return
+        power.toggle(tv, state.value.ready)
     }
 
     fun cancelSequence() {
@@ -192,7 +223,7 @@ class RemoteViewModel(
     fun shortcut(app: String) {
         val tv = state.value.selected ?: return
         val profile = profiles.get(tv.mac, app) ?: return
-        if (!state.value.ready || state.value.busy) return
+        if (!state.value.inputEnabled) return
         mutable.value = mutable.value.copy(busy = true, message = "Sending $app sequence…")
         dispatcher.run(profile)
     }
@@ -212,25 +243,8 @@ class RemoteViewModel(
         mutable.value = mutable.value.copy(message = "Calibration saved locally")
     }
 
-    fun wake() = action {
-        val tv = state.value.selected ?: return@action
-        session.disconnect()
-        mutable.value = mutable.value.copy(
-            ready = false,
-            message = "Wake sent; waiting up to 30 seconds…"
-        )
-        wakeSender.wake(tv.mac)
-        if (awaitAwake(tv, probe, 30_000, 1_500, awakeClock)) {
-            mutable.value = mutable.value.copy(message = "TV is awake")
-            if (foreground) session.connect(tv)
-        } else {
-            mutable.value = mutable.value.copy(
-                message = "TV not ready; check Wi-Fi wake settings"
-            )
-        }
-    }
-
     override fun onCleared() {
+        power.reset()
         session.disconnect()
         probe.close()
         super.onCleared()

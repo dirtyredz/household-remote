@@ -19,6 +19,7 @@ android {
             providers.gradleProperty("versionName").orElse("0.1.0").get().also {
                 require(Regex("[0-9]+\\.[0-9]+\\.[0-9]+").matches(it))
             }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     flavorDimensions += "audience"
     productFlavors {
@@ -71,4 +72,12 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.okhttp.tls)
+    // Fake-state Compose UI tests; the blank test host activity ships in debug builds only.
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    debugImplementation(platform(libs.compose.bom))
+    debugImplementation(libs.compose.ui.test.manifest)
 }

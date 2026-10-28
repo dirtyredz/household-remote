@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark native window so startup and system chrome match the Compose remote. -->
+    <style name="Theme.HouseholdRemote" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/remote_background</item>
+        <item name="android:colorBackground">@color/remote_background</item>
+    </style>
+</resources>

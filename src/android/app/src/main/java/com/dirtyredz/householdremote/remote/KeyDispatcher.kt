@@ -59,6 +59,16 @@ class KeyDispatcher(
             }
         }
     }
+
+    /**
+     * Cancels queued input and any shortcut, then attempts exactly one KEY_POWER frame.
+     * Returns whether the session accepted the frame; never retries. Ordinary input stays
+     * stopped until [start] runs for a new usable session.
+     */
+    fun standby(): Boolean {
+        cancel()
+        return send(SamsungProtocol.key("KEY_POWER"))
+    }
     fun cancel() {
         generation++
         channel?.cancel()

@@ -2,6 +2,7 @@ package com.dirtyredz.householdremote
 
 import com.dirtyredz.householdremote.discovery.TvInfoClient
 import com.dirtyredz.householdremote.inventory.Tv
+import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.remote.SamsungProtocol
 import com.dirtyredz.householdremote.security.Credential
@@ -94,7 +95,11 @@ class SessionTest {
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
             val store = Memory()
             val events = LinkedBlockingQueue<String>()
-            val session = RemoteSession(scope, store, { status, _ -> events.add(status) }, {})
+            val states = LinkedBlockingQueue<ConnectionState>()
+            val session = RemoteSession(scope, store, { status ->
+                states.add(status.state)
+                events.add(status.message)
+            }, {})
             fun awaitStatus(expected: String) {
                 val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
                 while (System.nanoTime() <
@@ -126,6 +131,21 @@ class SessionTest {
                 session.connect(tv, false, server.port)
                 awaitStatus("Denied")
                 assertFalse(session.send(SamsungProtocol.key("KEY_HOME")))
+                session.disconnect()
+                assertEquals(
+                    "Typed transitions; explicit disconnect reports Offline once",
+                    listOf(
+                        ConnectionState.AwaitingApproval,
+                        ConnectionState.Connected,
+                        ConnectionState.Connected,
+                        ConnectionState.Offline,
+                        ConnectionState.Connecting,
+                        ConnectionState.Connected,
+                        ConnectionState.Connecting,
+                        ConnectionState.Offline
+                    ),
+                    states.toList()
+                )
             } finally {
                 session.disconnect()
                 scope.cancel()
@@ -164,8 +184,11 @@ class SessionTest {
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
             val failed = LinkedBlockingQueue<String>()
             val session =
-                RemoteSession(scope, store, { text, _ ->
-                    if (text.startsWith("Connection failed")) failed.add(text)
+                RemoteSession(scope, store, { status ->
+                    if (status.message.startsWith("Connection failed")) {
+                        assertEquals(ConnectionState.Offline, status.state)
+                        failed.add(status.message)
+                    }
                 }, {})
             try {
                 session.connect(tv, false, server.port)
@@ -195,14 +218,25 @@ class SessionTest {
             val store = Memory()
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
             val timedOut = LinkedBlockingQueue<String>()
+            val states = LinkedBlockingQueue<ConnectionState>()
             var cancelled = 0
             val session =
-                RemoteSession(scope, store, { text, _ ->
-                    if (text.startsWith("Approval timed out")) timedOut.add(text)
+                RemoteSession(scope, store, { status ->
+                    states.add(status.state)
+                    if (status.message.startsWith(
+                            "Approval timed out"
+                        )
+                    ) {
+                        timedOut.add(status.message)
+                    }
                 }, { cancelled++ })
             try {
                 session.connect(tv, true, server.port, 300)
                 assertNotNull(timedOut.poll(5, TimeUnit.SECONDS))
+                assertEquals(
+                    listOf(ConnectionState.AwaitingApproval, ConnectionState.Offline),
+                    states.toList()
+                )
                 assertNull(store.value)
                 assertTrue(cancelled >= 2)
                 assertFalse(session.send(SamsungProtocol.key("KEY_POWER")))

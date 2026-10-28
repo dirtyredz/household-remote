@@ -14,8 +14,14 @@
 ```
 
 - `src/android/`: independent Kotlin/Compose Gradle build; `app/src/main/res/` owns Android resources and `gradle/` owns the pinned catalog and wrapper.
-- `src/android/app/src/main/java/com/dirtyredz/householdremote/`: `inventory` owns JSON inventory and repository merging; `discovery` owns SSDP/REST probes; `security` owns encrypted credentials, digests, and TV certificate trust; `remote` owns foreground sessions and serialized input; `power` owns WOL and identity-checked awake polling; `shortcuts` owns calibrated sequences, persistence, and the steps/text codec; `selfupdate` separates release feeds, verified downloads, package inspection, and installation; `persistence` owns shared atomic file writes; `ui` owns Compose/lifecycle and injects the remote controller's collaborators.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/`: `inventory` owns JSON inventory and repository merging; `discovery` owns SSDP/REST probes; `security` owns encrypted credentials, digests, and TV certificate trust; `remote` owns foreground sessions, serialized input, the one-shot standby send, and the typed `ConnectionStatus` contract; `power` owns WOL, identity-checked awake polling, and `PowerController` (power intent, operation state, cancellation, wake orchestration; no Compose); `shortcuts` owns calibrated sequences, persistence, and the steps/text codec; `selfupdate` separates release feeds, verified downloads, package inspection, and installation; `persistence` owns shared atomic file writes; `ui` owns the activity, the `RemoteApp` lifecycle route, `RemoteState`, and the ViewModel plus its factory (the composition root).
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/remote/`: stateless remote composables (header, connection indicator, power control, D-pad, rockers, navigation row, shortcuts, shared `RemoteButton`) and the pure `RemotePresentation` state mapping.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/setup/`: TV management sheet, JSON import and pairing dialogs.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/shortcuts/`: shortcut calibration editor.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/settings/`: secondary settings sheet and the manual update control.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/theme/`: Material 3 dark theme.
 - `src/android/app/src/test/`: offline JVM and fake-server tests.
+- `src/android/app/src/androidTest/`: Compose UI instrumentation tests that mount pure composables with fake state; never the ViewModel, updater or a TV.
 - `src/android/icons/`: source SVG and deterministic Android vector generator/check.
 - `src/android/releases/`: `.mjs` engines for unsigned staging, provenance, signing, manifest construction, and draft publication.
 - `src/household/`: explicit manifest export, private-data guard and offline tests. Real input is ignored `config/household.local.json`; exports stay under `.tmp/`.
