@@ -12,7 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Charcoal background; keep in step with res/values/colors.xml remote_background. */
+/** Charcoal background; keep in step with res/values/remote_colors.xml remote_background. */
 val RemoteBackground = Color(0xFF121417)
 
 private val colors = darkColorScheme(

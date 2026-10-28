@@ -1,5 +1,1 @@
-<resources>
-    <color name="icon_background">#123040</color>
-    <!-- Keep in step with ui/theme/RemoteTheme.kt RemoteBackground. -->
-    <color name="remote_background">#121417</color>
-</resources>
+<resources><color name="icon_background">#123040</color></resources>
