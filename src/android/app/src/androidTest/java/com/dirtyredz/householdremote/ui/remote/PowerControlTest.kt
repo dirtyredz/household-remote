@@ -1,24 +1,27 @@
 package com.dirtyredz.householdremote.ui.remote
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dirtyredz.householdremote.R
+import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.ui.theme.RemoteTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -35,8 +38,17 @@ class PowerControlTest {
     )
     private var clicks = 0
 
+    /** The power row as the remote mounts it: notice slot beside the round button. */
     private fun mount() = rule.setContent {
-        RemoteTheme { PowerControl(presentation, onToggle = { clicks++ }) }
+        RemoteTheme {
+            Row {
+                NoticeSlot(
+                    remoteNotice(presentation, ConnectionStatus.initial, ""),
+                    Modifier.weight(1f)
+                )
+                PowerControl(presentation, onToggle = { clicks++ })
+            }
+        }
     }
 
     private fun show(value: PowerPresentation) {
@@ -46,7 +58,7 @@ class PowerControlTest {
 
     private fun assertState(label: Int, status: Int, enabled: Boolean) {
         val node = rule.onNodeWithTag("power")
-        node.assertTextContains(context.getString(label))
+        node.assertContentDescriptionEquals(context.getString(label))
         node.assert(
             SemanticsMatcher.expectValue(
                 SemanticsProperties.StateDescription,
@@ -54,12 +66,18 @@ class PowerControlTest {
             )
         )
         if (enabled) node.assertIsEnabled() else node.assertIsNotEnabled()
-        node.assertHeightIsAtLeast(64.dp)
+        node.assertWidthIsEqualTo(56.dp).assertHeightIsEqualTo(56.dp)
     }
+
+    private fun assertNotice(text: Int) =
+        rule.onNodeWithTag("notice", useUnmergedTree = true).assertTextEquals(
+            context.getString(text)
+        )
 
     @Test fun everyTableStateRendersItsActionStatusAndAvailability() {
         mount()
         assertState(R.string.power_label, R.string.power_status_select_tv, enabled = false)
+        rule.onNodeWithTag("notice", useUnmergedTree = true).assertDoesNotExist()
 
         show(PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true, false))
         assertState(R.string.power_turn_off, R.string.power_status_on, enabled = true)
@@ -75,6 +93,7 @@ class PowerControlTest {
             show(PowerPresentation(label, PowerStatus.InProgress, enabled = false, busy = true))
             assertState(text, R.string.power_status_in_progress, enabled = false)
             rule.onNodeWithTag("power_progress", useUnmergedTree = true).assertExists()
+            assertNotice(text)
         }
 
         show(
@@ -87,8 +106,19 @@ class PowerControlTest {
             )
         )
         assertState(R.string.power_turn_on, R.string.power_status_standby_sent, enabled = true)
-        rule.onNodeWithText(context.getString(R.string.power_not_confirmed)).assertExists()
+        assertNotice(R.string.power_standby_not_confirmed)
         rule.onNodeWithTag("power_progress", useUnmergedTree = true).assertDoesNotExist()
+
+        show(
+            PowerPresentation(
+                PowerLabel.TurnOn,
+                PowerStatus.NotOnWifi,
+                enabled = false,
+                busy = false
+            )
+        )
+        assertState(R.string.power_turn_on, R.string.power_status_no_wifi, enabled = false)
+        assertNotice(R.string.power_needs_wifi)
 
         show(
             PowerPresentation(
@@ -100,7 +130,7 @@ class PowerControlTest {
             )
         )
         assertState(R.string.power_turn_on, R.string.power_status_off, enabled = true)
-        rule.onNodeWithTag("power_error").assertTextEquals(
+        rule.onNodeWithTag("power_error", useUnmergedTree = true).assertTextEquals(
             "TV not ready; check Wi-Fi wake settings"
         )
     }
@@ -112,6 +142,9 @@ class PowerControlTest {
         assertEquals(1, clicks)
         show(PowerPresentation(PowerLabel.TurningOff, PowerStatus.InProgress, false, true))
         repeat(3) { rule.onNodeWithTag("power").performClick() }
+        assertEquals(1, clicks)
+        show(PowerPresentation(PowerLabel.TurnOn, PowerStatus.NotOnWifi, false, false))
+        rule.onNodeWithTag("power").performClick()
         assertEquals(1, clicks)
         show(PowerPresentation(PowerLabel.Power, PowerStatus.SelectTv, false, false))
         rule.onNodeWithTag("power").performClick()

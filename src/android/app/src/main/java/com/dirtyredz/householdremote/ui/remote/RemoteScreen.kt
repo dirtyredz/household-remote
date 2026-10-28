@@ -2,28 +2,26 @@ package com.dirtyredz.householdremote.ui.remote
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
 import com.dirtyredz.householdremote.ui.RemoteState
@@ -36,12 +34,21 @@ class RemoteCallbacks(
     val onCancelSequence: () -> Unit,
     val onCalibrate: () -> Unit,
     val onPickTv: () -> Unit,
-    val onOverflow: () -> Unit
+    val onOverflow: () -> Unit,
+    val onWifiSettings: () -> Unit
 )
 
 /**
- * Stateless remote. Header, connection status and power stay fixed; the lower controls
- * scroll only when height or font scaling requires it, so targets never shrink to fit.
+ * Below this height (which grows with the font scale) the volume/channel rockers turn
+ * horizontal so everything still fits. The D-pad absorbs the rest in either layout.
+ */
+fun compactRemote(height: Dp, fontScale: Float): Boolean =
+    height < 660.dp + 200.dp * (fontScale - 1f).coerceAtLeast(0f)
+
+/**
+ * Stateless remote that always fits its window: nothing scrolls. Header, centred status and
+ * the power row keep their size; the D-pad takes the remaining height (down to its 48 dp key
+ * floor), and short windows or large text switch the rockers to one horizontal row.
  */
 @Composable
 fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modifier = Modifier) {
@@ -49,36 +56,48 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
     val enabled = state.inputEnabled
     // Ordinary keys stay live while reconnecting so one fresh key can wait; shortcuts do not.
     val keys = state.keysEnabled
-    Column(
+    val power = powerPresentation(selected, state.connection.state, state.power, state.onWifi)
+    BoxWithConstraints(
         modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .safeDrawingPadding()
             .padding(horizontal = 16.dp)
+            .testTag("remote")
     ) {
-        RemoteHeader(
-            tvName = state.selected?.name,
-            connection = connectionLabel(selected, state.connection.state),
-            onPickTv = callbacks.onPickTv,
-            onOverflow = callbacks.onOverflow,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        Spacer(Modifier.height(8.dp))
-        PowerControl(
-            powerPresentation(selected, state.connection.state, state.power),
-            callbacks.onPower
-        )
-        Spacer(Modifier.height(12.dp))
-        Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).testTag(
-                "remote_controls"
-            ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            DirectionPad(keys, callbacks.onKey)
+        val compact = compactRemote(maxHeight, LocalDensity.current.fontScale)
+        val gap = if (compact) 6.dp else 10.dp
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            RemoteHeader(
+                tvName = state.selected?.name,
+                onPickTv = callbacks.onPickTv,
+                onOverflow = callbacks.onOverflow,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            ConnectionIndicator(
+                connectionLabel(selected, state.connection.state, state.onWifi),
+                callbacks.onWifiSettings,
+                Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = PowerButtonSize),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NoticeSlot(
+                    remoteNotice(power, state.connection, state.message),
+                    Modifier.weight(1f)
+                )
+                PowerControl(power, callbacks.onPower)
+            }
+            Spacer(Modifier.height(gap))
+            DirectionPad(keys, callbacks.onKey, Modifier.weight(1f).fillMaxWidth())
+            Spacer(Modifier.height(gap))
             NavigationActions(keys, callbacks.onKey)
-            AudioChannelRow(keys, callbacks.onKey)
+            Spacer(Modifier.height(gap))
+            AudioChannelRow(keys, callbacks.onKey, horizontal = compact)
+            Spacer(Modifier.height(gap))
             ShortcutControls(
                 configured = state.configured,
                 enabled = enabled,
@@ -86,23 +105,16 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
                 canCalibrate = selected,
                 onShortcut = callbacks.onShortcut,
                 onCalibrate = callbacks.onCalibrate,
-                onCancel = callbacks.onCancelSequence
+                onCancel = callbacks.onCancelSequence,
+                compact = compact
             )
-            if (state.message.isNotBlank()) {
-                Text(
-                    state.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("message")
-                        .semantics { liveRegion = LiveRegionMode.Polite }
-                )
-            }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun AudioChannelRow(enabled: Boolean, onKey: (String) -> Unit) {
+private fun AudioChannelRow(enabled: Boolean, onKey: (String) -> Unit, horizontal: Boolean) {
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -110,14 +122,19 @@ private fun AudioChannelRow(enabled: Boolean, onKey: (String) -> Unit) {
     ) {
         RemoteRocker(
             label = stringResource(R.string.rocker_volume),
-            upIcon = R.drawable.ic_remote_plus,
-            upDescription = stringResource(R.string.key_volume_up),
-            upKey = "KEY_VOLUP",
-            downIcon = R.drawable.ic_remote_minus,
-            downDescription = stringResource(R.string.key_volume_down),
-            downKey = "KEY_VOLDOWN",
+            up = RockerKey(
+                R.drawable.ic_remote_plus,
+                stringResource(R.string.key_volume_up),
+                "KEY_VOLUP"
+            ),
+            down = RockerKey(
+                R.drawable.ic_remote_minus,
+                stringResource(R.string.key_volume_down),
+                "KEY_VOLDOWN"
+            ),
             enabled = enabled,
             onKey = onKey,
+            horizontal = horizontal,
             modifier = Modifier.weight(1f)
         )
         RemoteIconButton(
@@ -127,18 +144,23 @@ private fun AudioChannelRow(enabled: Boolean, onKey: (String) -> Unit) {
             enabled = enabled,
             shape = CircleShape,
             tag = "key_KEY_MUTE",
-            modifier = Modifier.size(64.dp)
+            modifier = Modifier.size(if (horizontal) 48.dp else 64.dp)
         )
         RemoteRocker(
             label = stringResource(R.string.rocker_channel),
-            upIcon = R.drawable.ic_remote_up,
-            upDescription = stringResource(R.string.key_channel_up),
-            upKey = "KEY_CHUP",
-            downIcon = R.drawable.ic_remote_down,
-            downDescription = stringResource(R.string.key_channel_down),
-            downKey = "KEY_CHDOWN",
+            up = RockerKey(
+                R.drawable.ic_remote_up,
+                stringResource(R.string.key_channel_up),
+                "KEY_CHUP"
+            ),
+            down = RockerKey(
+                R.drawable.ic_remote_down,
+                stringResource(R.string.key_channel_down),
+                "KEY_CHDOWN"
+            ),
             enabled = enabled,
             onKey = onKey,
+            horizontal = horizontal,
             modifier = Modifier.weight(1f)
         )
     }

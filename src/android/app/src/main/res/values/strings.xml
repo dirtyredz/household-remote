@@ -11,6 +11,8 @@
     <string name="connection_approve">Approve on TV</string>
     <string name="connection_unavailable">TV unavailable — check Wi-Fi or Wake</string>
     <string name="connection_offline">Offline</string>
+    <string name="connection_no_wifi">Phone not on Wi-Fi</string>
+    <string name="connection_wifi_settings">Wi-Fi settings</string>
 
     <!-- Power: the label is the action; the status is inferred, never panel telemetry -->
     <string name="power_label">Power</string>
@@ -24,7 +26,9 @@
     <string name="power_status_off">Off or unreachable</string>
     <string name="power_status_standby_sent">Standby sent</string>
     <string name="power_status_in_progress">Working…</string>
-    <string name="power_not_confirmed">Power off not confirmed</string>
+    <string name="power_status_no_wifi">Phone not on Wi-Fi</string>
+    <string name="power_standby_not_confirmed">Standby sent · power off not confirmed</string>
+    <string name="power_needs_wifi">Phone not on Wi-Fi · Turn on needs Wi-Fi</string>
 
     <!-- Keys -->
     <string name="key_up">Up</string>

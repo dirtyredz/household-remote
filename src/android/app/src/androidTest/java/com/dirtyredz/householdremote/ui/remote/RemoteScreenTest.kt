@@ -8,16 +8,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -60,13 +64,16 @@ class RemoteScreenTest {
         onCancelSequence = { events += "cancel" },
         onCalibrate = { events += "calibrate" },
         onPickTv = { events += "pick" },
-        onOverflow = { events += "overflow" }
+        onOverflow = { events += "overflow" },
+        onWifiSettings = { events += "wifi" }
     )
     private val mappedKeys = listOf(
         "KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_ENTER",
         "KEY_RETURN", "KEY_HOME", "KEY_SOURCE",
         "KEY_VOLUP", "KEY_VOLDOWN", "KEY_MUTE", "KEY_CHUP", "KEY_CHDOWN"
     )
+    private val allTargets = listOf("tv_picker", "overflow", "power") +
+        mappedKeys.map { "key_$it" } + ShortcutProfile.apps.map { "shortcut_$it" } + "calibrate"
 
     private fun mount(fontScale: Float = 1f, width: Int = 360, height: Int = 760) =
         rule.setContent {
@@ -85,10 +92,37 @@ class RemoteScreenTest {
 
     private fun text(id: Int) = context.getString(id)
 
+    /** Every target is on screen, inside the window, above the 48 dp floor, in remote order. */
+    private fun assertFits(width: Int, height: Int) {
+        rule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
+            .assertCountEquals(0)
+        allTargets.forEach { tag ->
+            val node = rule.onNodeWithTag(tag).assertIsDisplayed()
+                .assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+            val bounds = node.getUnclippedBoundsInRoot()
+            assertTrue("$tag above the top", bounds.top >= 0.dp)
+            assertTrue("$tag below ${height}dp: ${bounds.bottom}", bounds.bottom <= height.dp)
+            assertTrue("$tag beyond ${width}dp: ${bounds.right}", bounds.right <= width.dp)
+        }
+        val order = listOf(
+            "tv_picker",
+            "power",
+            "direction_pad",
+            "key_KEY_RETURN",
+            "key_KEY_VOLDOWN",
+            "shortcut_Netflix"
+        )
+        order.zipWithNext().forEach { (above, below) ->
+            val upper = rule.onNodeWithTag(above).getUnclippedBoundsInRoot()
+            val lower = rule.onNodeWithTag(below).getUnclippedBoundsInRoot()
+            assertTrue("$above overlaps $below", upper.bottom <= lower.top)
+        }
+    }
+
     @Test fun everyControlSendsItsMappedKeyAndMeetsTargetSize() {
         mount()
         mappedKeys.forEach { key ->
-            rule.onNodeWithTag("key_$key").performScrollTo().assertHeightIsAtLeast(48.dp)
+            rule.onNodeWithTag("key_$key").assertHeightIsAtLeast(48.dp)
                 .assertWidthIsAtLeast(48.dp).performClick()
         }
         assertEquals(mappedKeys, keys)
@@ -96,6 +130,39 @@ class RemoteScreenTest {
         rule.onNodeWithTag("tv_picker").performClick()
         rule.onNodeWithTag("overflow").performClick()
         assertEquals(listOf("power", "pick", "overflow"), events)
+    }
+
+    @Test fun remoteHasNoScrollAndFitsSmallAndOwnerPhones() {
+        mount(fontScale = 1f, width = 360, height = 640)
+        assertFits(360, 640)
+    }
+
+    @Test fun remoteFits360x640AtLargeText() {
+        mount(fontScale = 1.3f, width = 360, height = 640)
+        assertFits(360, 640)
+    }
+
+    @Test fun remoteFitsOwnerPhoneAtLargeText() {
+        mount(fontScale = 1.3f, width = 411, height = 891)
+        assertFits(411, 891)
+    }
+
+    @Test fun remoteFitsWithTheWifiActionAtLargeText() {
+        state = connected.copy(
+            onWifi = false,
+            connection = ConnectionStatus(ConnectionState.Unavailable, ConnectionStatus.NO_WIFI)
+        )
+        mount(fontScale = 1.3f, width = 360, height = 640)
+        assertFits(360, 640)
+    }
+
+    @Test fun connectionStatusIsShownOnceWithNoBottomMessageLine() {
+        mount()
+        rule.onAllNodesWithText(text(R.string.connection_connected)).assertCountEquals(1)
+        show(connected.copy(message = "Sequence sent"))
+        rule.onNodeWithTag("notice", useUnmergedTree = true).assertTextContains("Sequence sent")
+        rule.mainClock.advanceTimeBy(MESSAGE_VISIBLE_MS + 500)
+        rule.onNodeWithTag("notice", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun connectionIndicatorFollowsTypedState() {
@@ -130,6 +197,25 @@ class RemoteScreenTest {
         indicator.assertTextContains(text(R.string.connection_select_tv))
     }
 
+    @Test fun noWifiShowsTheHintTheSettingsActionAndDisablesPowerAndKeys() {
+        mount()
+        rule.onNodeWithTag("wifi_settings").assertDoesNotExist()
+        show(
+            connected.copy(
+                onWifi = false,
+                connection = ConnectionStatus(ConnectionState.Unavailable, ConnectionStatus.NO_WIFI)
+            )
+        )
+        rule.onNodeWithTag("connection").assertTextContains(text(R.string.connection_no_wifi))
+        rule.onNodeWithTag("notice", useUnmergedTree = true)
+            .assertTextContains(text(R.string.power_needs_wifi))
+        rule.onNodeWithTag("power").assertIsNotEnabled().performClick()
+        rule.onNodeWithTag("key_KEY_UP").assertIsNotEnabled().performClick()
+        rule.onNodeWithTag("wifi_settings").assertIsDisplayed().performClick()
+        assertEquals(listOf("wifi"), events)
+        assertTrue(keys.isEmpty())
+    }
+
     @Test fun inputIsUnavailableOfflineAndUnderPowerWork() {
         mount()
         for (blocked in listOf(
@@ -139,7 +225,7 @@ class RemoteScreenTest {
         )) {
             show(blocked)
             mappedKeys.forEach { key ->
-                rule.onNodeWithTag("key_$key").performScrollTo().assertIsNotEnabled().performClick()
+                rule.onNodeWithTag("key_$key").assertIsNotEnabled().performClick()
             }
         }
         assertTrue(keys.isEmpty())
@@ -152,36 +238,26 @@ class RemoteScreenTest {
                 connection = ConnectionStatus(ConnectionState.Reconnecting, "Reconnecting…")
             )
         )
-        rule.onNodeWithTag("key_KEY_UP").performScrollTo().assertIsEnabled().performClick()
-        rule.onNodeWithTag("shortcut_Netflix").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("key_KEY_UP").assertIsEnabled().performClick()
+        rule.onNodeWithTag("shortcut_Netflix").assertIsNotEnabled()
         assertEquals(listOf("KEY_UP"), keys)
     }
 
     @Test fun uncalibratedShortcutsAreDisabledBesideCalibrationAndSequencesCancel() {
         mount()
-        rule.onNodeWithTag("shortcut_Netflix").performScrollTo().assertIsEnabled().performClick()
+        rule.onNodeWithTag("shortcut_Netflix").assertIsEnabled().performClick()
         ShortcutProfile.apps.filter { it != "Netflix" }.forEach { app ->
-            rule.onNodeWithTag("shortcut_$app").performScrollTo().assertIsNotEnabled()
+            rule.onNodeWithTag("shortcut_$app").assertIsNotEnabled()
         }
-        rule.onNodeWithTag("calibrate").performScrollTo().assertIsEnabled().performClick()
+        rule.onNodeWithTag("calibrate").assertIsEnabled().performClick()
         show(connected.copy(busy = true))
-        rule.onNodeWithTag("shortcut_Netflix").performScrollTo().assertIsNotEnabled()
-        rule.onNodeWithTag("cancel_sequence").performScrollTo().performClick()
+        rule.onNodeWithTag("shortcut_Netflix").assertDoesNotExist()
+        rule.onNodeWithTag("cancel_sequence").assertIsDisplayed().performClick()
         assertEquals(listOf("shortcut:Netflix", "calibrate", "cancel"), events)
     }
 
-    @Test fun compactWidthAndLargeTextKeepPowerVisibleAndTargetsFull() {
+    @Test fun compactWidthAndLargeTextKeepEveryTargetOnScreen() {
         mount(fontScale = 2f, width = 320, height = 640)
-        rule.onNodeWithTag("tv_picker").assertIsDisplayed()
-        rule.onNodeWithTag("connection").assertIsDisplayed()
-        rule.onNodeWithTag("power").assertIsDisplayed().assertHeightIsAtLeast(64.dp)
-        (
-            mappedKeys.map {
-                "key_$it"
-            } + ShortcutProfile.apps.map { "shortcut_$it" }
-            ).forEach { tag ->
-            rule.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
-                .assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
-        }
+        assertFits(320, 640)
     }
 }
