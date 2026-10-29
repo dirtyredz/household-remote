@@ -37,7 +37,7 @@ typealias RemoteSessionFactory = (
 typealias KeyDispatcherFactory = (
     CoroutineScope,
     (String) -> Boolean,
-    (String) -> Unit
+    () -> Unit
 ) -> KeyDispatcher
 
 typealias PowerControllerFactory = (
@@ -79,12 +79,7 @@ class RemoteViewModel(
             { status ->
                 val previous = mutable.value
                 val wasReady = previous.ready
-                // The indicator shows the status itself; a state change retires older feedback.
-                val changed = status.state != previous.connection.state
-                mutable.value = previous.copy(
-                    connection = status,
-                    message = if (changed) "" else previous.message
-                )
+                mutable.value = previous.copy(connection = status)
                 when {
                     // Only a new usable session starts input; a held fresh key goes out once.
                     status.ready && !wasReady -> {
@@ -103,7 +98,7 @@ class RemoteViewModel(
         dispatcher = dispatcherFactory(
             viewModelScope,
             { session.send(it) },
-            { message -> mutable.value = mutable.value.copy(message = message) }
+            {}
         )
         power = powerFactory(
             viewModelScope,
@@ -243,32 +238,19 @@ class RemoteViewModel(
     fun tap(key: String) {
         val current = state.value
         if (current.inputEnabled) {
-            if (!dispatcher.tap(key)) message(INPUT_UNAVAILABLE)
+            dispatcher.tap(key)
             return
         }
-        if (!foreground || !current.keysEnabled) return message(INPUT_UNAVAILABLE)
+        if (!foreground || !current.keysEnabled) return
         // Recovery: one fresh key may wait; a tap after recovery ran out starts a new window.
         session.resumeRecovery()
-        message(if (dispatcher.hold(key)) KEY_HELD else KEY_REJECTED)
+        dispatcher.hold(key)
     }
 
     /** One launch request on the live session; never held for, or replayed after, recovery. */
     fun launch(app: TvApp) {
         val current = state.value
-        message(
-            when {
-                current.install(app) == AppInstall.NotInstalled ->
-                    "${app.label} is not installed on this TV"
-
-                current.appEnabled(app) && dispatcher.launch(app) -> "Opening ${app.label}…"
-
-                else -> "${app.label} not opened; TV not connected"
-            }
-        )
-    }
-
-    private fun message(text: String) {
-        mutable.value = mutable.value.copy(message = text)
+        if (current.appEnabled(app)) dispatcher.launch(app)
     }
 
     /** One power activation; intent is decided from the current session and off intent. */
@@ -288,11 +270,5 @@ class RemoteViewModel(
         probe.close()
         appProbe.close()
         super.onCleared()
-    }
-
-    private companion object {
-        const val INPUT_UNAVAILABLE = "Input unavailable; connect first"
-        const val KEY_HELD = "Reconnecting; key will send when connected"
-        const val KEY_REJECTED = "Still reconnecting; key not sent"
     }
 }

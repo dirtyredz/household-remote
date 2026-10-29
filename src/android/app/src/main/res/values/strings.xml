@@ -8,12 +8,9 @@
     <string name="connection_connecting">Connecting…</string>
     <string name="connection_reconnecting">Reconnecting…</string>
     <string name="connection_approve">Approve on TV</string>
-    <string name="connection_unavailable">TV unavailable — check Wi-Fi or Wake</string>
     <string name="connection_unavailable_short">Unavailable</string>
     <string name="connection_offline">Offline</string>
-    <string name="connection_no_wifi">Phone not on Wi-Fi</string>
     <string name="connection_no_wifi_short">No Wi-Fi</string>
-    <string name="connection_wifi_settings">Wi-Fi settings</string>
 
     <!-- Power: the label is the action; the status is inferred, never panel telemetry -->
     <string name="power_label">Power</string>

@@ -19,14 +19,17 @@ import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
 
 /**
- * Selected-TV picker, compact connection status, and overflow entry on one line. The picker
- * takes the flexible width so a long TV name ellipsizes before the status can wrap.
+ * Selected-TV picker, compact connection status, power, and overflow entry on one line. The
+ * picker takes the flexible width so a long TV name ellipsizes before the status can wrap.
  */
 @Composable
 fun RemoteHeader(
     tvName: String?,
     connection: ConnectionLabel?,
     onPickTv: () -> Unit,
+    power: PowerPresentation,
+    onPower: () -> Unit,
+    onWifiSettings: () -> Unit,
     onOverflow: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -58,7 +61,8 @@ fun RemoteHeader(
                 Icon(painterResource(R.drawable.ic_remote_picker), contentDescription = null)
             }
         }
-        connection?.let { ConnectionIndicator(it) }
+        connection?.let { ConnectionIndicator(it, onWifiSettings) }
+        PowerControl(power, onPower)
         RemoteIconButton(
             icon = R.drawable.ic_remote_more,
             description = stringResource(R.string.header_more),

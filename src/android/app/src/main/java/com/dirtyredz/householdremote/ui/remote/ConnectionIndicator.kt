@@ -2,14 +2,15 @@ package com.dirtyredz.householdremote.ui.remote
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,12 +24,16 @@ import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
 
 /**
- * Compact connection status for the header: a filled dot when connected, a small spinner
- * while an attempt is in progress, and an outlined ring otherwise. The short label stays
- * on one line; explanatory text and actions live in the notice slot.
+ * Compact connection status for the header: a filled dot when connected and an outlined
+ * dot otherwise. The short label stays on one line. With no Wi-Fi the whole status opens
+ * system Wi-Fi settings.
  */
 @Composable
-fun ConnectionIndicator(label: ConnectionLabel, modifier: Modifier = Modifier) {
+fun ConnectionIndicator(
+    label: ConnectionLabel,
+    onWifiSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val text = stringResource(
         when (label) {
             ConnectionLabel.Connected -> R.string.connection_connected
@@ -40,26 +45,26 @@ fun ConnectionIndicator(label: ConnectionLabel, modifier: Modifier = Modifier) {
             ConnectionLabel.NotOnWifi -> R.string.connection_no_wifi_short
         }
     )
+    val action = if (label == ConnectionLabel.NotOnWifi) {
+        Modifier.minimumInteractiveComponentSize().clickable(onClick = onWifiSettings)
+    } else {
+        Modifier
+    }
     Row(
-        modifier
+        modifier.then(action)
             .testTag("connection")
             .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(12.dp), contentAlignment = Alignment.Center) {
-            when (label) {
-                ConnectionLabel.Connected -> Box(
+            if (label == ConnectionLabel.Connected) {
+                Box(
                     Modifier.size(10.dp)
                         .background(MaterialTheme.colorScheme.tertiary, CircleShape)
                 )
-
-                ConnectionLabel.Connecting, ConnectionLabel.Reconnecting,
-                ConnectionLabel.ApproveOnTv ->
-                    CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
-
-                ConnectionLabel.Offline, ConnectionLabel.Unavailable,
-                ConnectionLabel.NotOnWifi -> Box(
+            } else {
+                Box(
                     Modifier.size(10.dp)
                         .border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)
                 )

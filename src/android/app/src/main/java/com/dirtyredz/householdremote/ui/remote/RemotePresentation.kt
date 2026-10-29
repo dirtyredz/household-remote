@@ -4,7 +4,6 @@ import com.dirtyredz.householdremote.power.PowerIntent
 import com.dirtyredz.householdremote.power.PowerPhase
 import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionState
-import com.dirtyredz.householdremote.remote.ConnectionStatus
 
 /** Pure mapping from typed state to what the controls show; composables only localize it. */
 enum class PowerLabel { Power, TurnOff, TurnOn, TurningOn, Connecting, TurningOff }
@@ -18,13 +17,7 @@ enum class PowerStatus {
     NotOnWifi
 }
 
-data class PowerPresentation(
-    val label: PowerLabel,
-    val status: PowerStatus,
-    val enabled: Boolean,
-    val busy: Boolean,
-    val error: String? = null
-)
+data class PowerPresentation(val label: PowerLabel, val status: PowerStatus, val enabled: Boolean)
 
 fun powerPresentation(
     hasSelection: Boolean,
@@ -36,7 +29,6 @@ fun powerPresentation(
         return PowerPresentation(
             PowerLabel.Power,
             PowerStatus.SelectTv,
-            false,
             false
         )
     }
@@ -47,16 +39,14 @@ fun powerPresentation(
         PowerPhase.Idle -> null
     }
     if (busyLabel != null) {
-        return PowerPresentation(busyLabel, PowerStatus.InProgress, false, true)
+        return PowerPresentation(busyLabel, PowerStatus.InProgress, false)
     }
     // Without Wi-Fi there is no session and no wake broadcast: say why instead of trying.
     if (!onWifi) {
         return PowerPresentation(
             PowerLabel.TurnOn,
             PowerStatus.NotOnWifi,
-            enabled = false,
-            busy = false,
-            error = power.error
+            enabled = false
         )
     }
     val connected = connection == ConnectionState.Connected
@@ -64,25 +54,19 @@ fun powerPresentation(
         power.standbySent -> PowerPresentation(
             PowerLabel.TurnOn,
             PowerStatus.StandbySent,
-            enabled = true,
-            busy = false,
-            error = power.error
+            enabled = true
         )
 
         power.intent(connected) == PowerIntent.Standby -> PowerPresentation(
             PowerLabel.TurnOff,
             PowerStatus.OnConnected,
-            enabled = true,
-            busy = false,
-            error = power.error
+            enabled = true
         )
 
         else -> PowerPresentation(
             PowerLabel.TurnOn,
             PowerStatus.OffOrUnreachable,
-            enabled = true,
-            busy = false,
-            error = power.error
+            enabled = true
         )
     }
 }
@@ -115,48 +99,4 @@ fun connectionLabel(
         ConnectionState.Unavailable -> ConnectionLabel.Unavailable
         ConnectionState.Offline -> ConnectionLabel.Offline
     }
-}
-
-/**
- * The one line beside the power button. It replaces the old bottom message line, so it adds
- * no height of its own. Power feedback outranks connection detail, which outranks general
- * feedback; only [Message] is transient (the slot hides it after a few seconds).
- */
-sealed interface RemoteNotice {
-    data class Error(val text: String) : RemoteNotice
-
-    data class Progress(val label: PowerLabel) : RemoteNotice
-
-    data object NotOnWifi : RemoteNotice
-
-    /** Why the connection stopped or what it is waiting for (pairing, re-pair, approval). */
-    data class Detail(val text: String) : RemoteNotice
-
-    data class Message(val text: String) : RemoteNotice
-}
-
-/** Offline messages the indicator's "Offline" already says. */
-private val quietOffline = setOf(
-    "",
-    ConnectionStatus.initial.message,
-    ConnectionStatus.DISCONNECTED,
-    ConnectionStatus.AFTER_STANDBY
-)
-
-fun remoteNotice(
-    power: PowerPresentation,
-    connection: ConnectionStatus,
-    message: String
-): RemoteNotice? {
-    power.error?.let { return RemoteNotice.Error(it) }
-    if (power.busy) return RemoteNotice.Progress(power.label)
-    if (power.status == PowerStatus.NotOnWifi) return RemoteNotice.NotOnWifi
-    val detail = when (connection.state) {
-        ConnectionState.AwaitingApproval -> connection.message
-        ConnectionState.Unavailable -> connection.message
-        ConnectionState.Offline -> connection.message.takeUnless { it in quietOffline }
-        else -> null
-    }
-    if (detail != null) return RemoteNotice.Detail(detail)
-    return message.takeIf { it.isNotBlank() }?.let(RemoteNotice::Message)
 }

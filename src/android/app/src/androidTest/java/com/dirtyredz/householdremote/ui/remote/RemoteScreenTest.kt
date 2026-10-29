@@ -106,7 +106,6 @@ class RemoteScreenTest {
         }
         val order = listOf(
             "tv_picker",
-            "power",
             "direction_pad",
             "key_KEY_RETURN",
             "key_KEY_VOLDOWN",
@@ -160,9 +159,6 @@ class RemoteScreenTest {
         mount()
         rule.onAllNodesWithText(text(R.string.connection_connected)).assertCountEquals(1)
         rule.onAllNodesWithText("Apps").assertCountEquals(0)
-        show(connected.copy(message = "Opening Netflix…"))
-        rule.onNodeWithTag("notice", useUnmergedTree = true).assertTextContains("Opening Netflix…")
-        rule.mainClock.advanceTimeBy(MESSAGE_VISIBLE_MS + 500)
         rule.onNodeWithTag("notice", useUnmergedTree = true).assertDoesNotExist()
     }
 
@@ -200,7 +196,6 @@ class RemoteScreenTest {
 
     @Test fun noWifiShowsTheHintTheSettingsActionAndDisablesPowerAndKeys() {
         mount()
-        rule.onNodeWithTag("wifi_settings").assertDoesNotExist()
         show(
             connected.copy(
                 onWifi = false,
@@ -208,17 +203,14 @@ class RemoteScreenTest {
             )
         )
         rule.onNodeWithTag("connection")
-            .assertTextContains(text(R.string.connection_no_wifi_short))
-        rule.onNodeWithTag("notice", useUnmergedTree = true)
-            .assertTextContains(text(R.string.connection_no_wifi))
+            .assertTextContains(text(R.string.connection_no_wifi_short)).performClick()
         rule.onNodeWithTag("power").assertIsNotEnabled().performClick()
         rule.onNodeWithTag("key_KEY_UP").assertIsNotEnabled().performClick()
-        rule.onNodeWithTag("wifi_settings").assertIsDisplayed().performClick()
         assertEquals(listOf("wifi"), events)
         assertTrue(keys.isEmpty())
     }
 
-    @Test fun longTvNameYieldsToTheSingleLineStatusAndUnavailableDetailUsesNotice() {
+    @Test fun longTvNameYieldsToStatusPowerAndOverflowOnOneLine() {
         state = connected.copy(
             selected = tv.copy(name = "A very long family room television name"),
             connection = ConnectionStatus(
@@ -231,11 +223,13 @@ class RemoteScreenTest {
         val status = rule.onNodeWithTag("connection").assertIsDisplayed()
             .assertTextContains(text(R.string.connection_unavailable_short))
             .getUnclippedBoundsInRoot()
+        val power = rule.onNodeWithTag("power").getUnclippedBoundsInRoot()
         val overflow = rule.onNodeWithTag("overflow").getUnclippedBoundsInRoot()
         assertTrue("TV picker overlaps status", picker.right <= status.left)
-        assertTrue("status overlaps overflow", status.right <= overflow.left)
-        rule.onNodeWithTag("notice", useUnmergedTree = true)
-            .assertTextContains(ConnectionStatus.UNAVAILABLE)
+        assertTrue("status overlaps power", status.right <= power.left)
+        assertTrue("power overlaps overflow", power.right <= overflow.left)
+        assertTrue("header controls are not aligned", picker.top >= power.top)
+        assertTrue("header controls are not aligned", picker.bottom <= power.bottom)
     }
 
     @Test fun inputIsUnavailableOfflineAndUnderPowerWork() {
