@@ -59,6 +59,10 @@ class RemoteStateTest {
         assertFalse("the TV said it is not installed", connected.appEnabled(TvApp.Plex))
         assertEquals(AppInstall.Unknown, connected.install(TvApp.Prime))
         assertTrue("unknown status stays usable", connected.appEnabled(TvApp.Prime))
+        assertTrue(
+            "all unknown statuses are enabled while Connected and idle",
+            TvApp.entries.all { connected.copy(apps = emptyMap()).appEnabled(it) }
+        )
         for (blocked in listOf(
             connected.copy(connection = ConnectionStatus(ConnectionState.Reconnecting, "")),
             connected.copy(power = PowerState(standbySent = true)),

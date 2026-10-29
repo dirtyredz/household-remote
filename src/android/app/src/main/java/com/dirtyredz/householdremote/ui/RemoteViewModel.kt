@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dirtyredz.householdremote.apps.AppInstall
 import com.dirtyredz.householdremote.apps.AppInstallProbe
 import com.dirtyredz.householdremote.apps.TvApp
+import com.dirtyredz.householdremote.apps.launchWithFallback
 import com.dirtyredz.householdremote.discovery.SsdpDiscovery
 import com.dirtyredz.householdremote.discovery.TvProbe
 import com.dirtyredz.householdremote.inventory.Household
@@ -22,6 +23,7 @@ import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.security.Credentials
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,6 +72,7 @@ class RemoteViewModel(
     private val power: PowerController
     private var operation: Job? = null
     private var appCheck: Job? = null
+    private val appLaunches = mutableSetOf<Job>()
     private var foreground = false
 
     init {
@@ -144,6 +147,7 @@ class RemoteViewModel(
         wifi.stop()
         operation?.cancel()
         appCheck?.cancel()
+        cancelAppLaunches()
         power.reset()
         dispatcher.discardPending()
         session.disconnect()
@@ -168,12 +172,18 @@ class RemoteViewModel(
         session.disconnect()
         // Install status belongs to the TV it was read from.
         appCheck?.cancel()
+        cancelAppLaunches()
         mutable.value = mutable.value.copy(apps = emptyMap())
     }
 
     /** Read-only install check for the app buttons; the result only applies to [tv]. */
     private fun checkApps(tv: Tv) {
         appCheck?.cancel()
+        // A result belongs to one usable session. Do not let an old 404 disable a button
+        // while a slow or failed probe checks the new session.
+        if (state.value.selected?.mac == tv.mac) {
+            mutable.value = mutable.value.copy(apps = emptyMap())
+        }
         appCheck = viewModelScope.launch {
             val found = try {
                 appProbe.installed(tv.ip)
@@ -252,19 +262,46 @@ class RemoteViewModel(
         message(if (dispatcher.hold(key)) KEY_HELD else KEY_REJECTED)
     }
 
-    /** One launch request on the live session; never held for, or replayed after, recovery. */
+    /** One launch action on the live session; REST first, then one websocket fallback. */
     fun launch(app: TvApp) {
         val current = state.value
-        message(
-            when {
-                current.install(app) == AppInstall.NotInstalled ->
-                    "${app.label} is not installed on this TV"
+        when {
+            current.install(app) == AppInstall.NotInstalled ->
+                message("${app.label} is not installed on this TV")
 
-                current.appEnabled(app) && dispatcher.launch(app) -> "Opening ${app.label}…"
+            !current.appEnabled(app) ->
+                message("${app.label} not opened; TV not connected")
 
-                else -> "${app.label} not opened; TV not connected"
+            else -> {
+                val tv = requireNotNull(current.selected)
+                message("Opening ${app.label}…")
+                val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+                    val opened = try {
+                        appProbe.launchWithFallback(tv.ip, app) {
+                            foreground &&
+                                state.value.selected?.mac == tv.mac &&
+                                state.value.appEnabled(app) &&
+                                dispatcher.launch(app)
+                        }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (_: Exception) {
+                        false
+                    }
+                    if (!opened && foreground && state.value.selected?.mac == tv.mac) {
+                        message("${app.label} not opened; launch failed")
+                    }
+                }
+                appLaunches += job
+                job.invokeOnCompletion { appLaunches -= job }
+                job.start()
             }
-        )
+        }
+    }
+
+    private fun cancelAppLaunches() {
+        appLaunches.toList().forEach(Job::cancel)
+        appLaunches.clear()
     }
 
     private fun message(text: String) {
@@ -282,6 +319,7 @@ class RemoteViewModel(
     override fun onCleared() {
         wifi.stop()
         appCheck?.cancel()
+        cancelAppLaunches()
         power.reset()
         dispatcher.discardPending()
         session.disconnect()

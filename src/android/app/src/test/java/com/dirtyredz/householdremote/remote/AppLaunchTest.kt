@@ -12,7 +12,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** App buttons send one `ed.apps.launch` per press: never held, never replayed. */
+/** The fallback frame is exact, sent once when asked, never held, and never replayed. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppLaunchTest {
     private class Harness(scope: TestScope) {
