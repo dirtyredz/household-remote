@@ -1,5 +1,7 @@
 package com.dirtyredz.householdremote.ui.remote
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -17,6 +19,14 @@ import com.dirtyredz.householdremote.ui.theme.RemotePowerRed
 
 /** The power button's diameter: a physical remote's red key, above the 48 dp floor. */
 val PowerButtonSize = 56.dp
+
+/** The power key's dedicated row directly beneath the TV/status header. */
+@Composable
+fun PowerRow(power: PowerPresentation, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth().testTag("power_row")) {
+        PowerControl(power, onToggle)
+    }
+}
 
 fun powerLabelText(label: PowerLabel): Int = when (label) {
     PowerLabel.Power -> R.string.power_label

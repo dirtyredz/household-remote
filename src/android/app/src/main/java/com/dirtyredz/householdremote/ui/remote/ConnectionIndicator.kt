@@ -74,7 +74,7 @@ fun ConnectionIndicator(
             text,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,
-            overflow = TextOverflow.Clip,
+            overflow = TextOverflow.Ellipsis,
             color = if (label == ConnectionLabel.Connected) {
                 MaterialTheme.colorScheme.tertiary
             } else {

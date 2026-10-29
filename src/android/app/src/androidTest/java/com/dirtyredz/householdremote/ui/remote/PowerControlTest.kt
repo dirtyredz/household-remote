@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -36,7 +37,7 @@ class PowerControlTest {
 
     private fun mount() = rule.setContent {
         RemoteTheme {
-            PowerControl(presentation, onToggle = { clicks++ })
+            PowerRow(presentation, onToggle = { clicks++ })
         }
     }
 
@@ -112,5 +113,14 @@ class PowerControlTest {
         show(PowerPresentation(PowerLabel.Power, PowerStatus.SelectTv, false))
         rule.onNodeWithTag("power").performClick()
         assertEquals(1, clicks)
+    }
+
+    @Test fun powerHasItsOwnLeftAlignedRow() {
+        mount()
+        val row = rule.onNodeWithTag("power_row").getUnclippedBoundsInRoot()
+        val power = rule.onNodeWithTag("power").getUnclippedBoundsInRoot()
+        assertEquals(row.left, power.left)
+        assertEquals(row.top, power.top)
+        assertEquals(56.dp, row.bottom - row.top)
     }
 }

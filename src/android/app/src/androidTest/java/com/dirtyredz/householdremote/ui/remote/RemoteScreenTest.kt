@@ -141,6 +141,11 @@ class RemoteScreenTest {
         assertFits(360, 640)
     }
 
+    @Test fun remoteFitsOwnerPhoneAtDefaultText() {
+        mount(fontScale = 1f, width = 411, height = 891)
+        assertFits(411, 891)
+    }
+
     @Test fun remoteFitsOwnerPhoneAtLargeText() {
         mount(fontScale = 1.3f, width = 411, height = 891)
         assertFits(411, 891)
@@ -210,9 +215,9 @@ class RemoteScreenTest {
         assertTrue(keys.isEmpty())
     }
 
-    @Test fun longTvNameYieldsToStatusPowerAndOverflowOnOneLine() {
+    @Test fun tvNameGetsPriorityWhilePowerStaysBelowTheHeader() {
         state = connected.copy(
-            selected = tv.copy(name = "A very long family room television name"),
+            selected = tv.copy(name = "family room tv"),
             connection = ConnectionStatus(
                 ConnectionState.Unavailable,
                 ConnectionStatus.UNAVAILABLE
@@ -226,10 +231,13 @@ class RemoteScreenTest {
         val power = rule.onNodeWithTag("power").getUnclippedBoundsInRoot()
         val overflow = rule.onNodeWithTag("overflow").getUnclippedBoundsInRoot()
         assertTrue("TV picker overlaps status", picker.right <= status.left)
-        assertTrue("status overlaps power", status.right <= power.left)
-        assertTrue("power overlaps overflow", power.right <= overflow.left)
-        assertTrue("header controls are not aligned", picker.top >= power.top)
-        assertTrue("header controls are not aligned", picker.bottom <= power.bottom)
+        assertTrue("status overlaps overflow", status.right <= overflow.left)
+        assertTrue(
+            "TV picker did not get priority width",
+            picker.right - picker.left > status.right - status.left
+        )
+        assertTrue("power is not beneath the picker", power.top >= picker.bottom)
+        assertEquals(picker.left, power.left)
     }
 
     @Test fun inputIsUnavailableOfflineAndUnderPowerWork() {
