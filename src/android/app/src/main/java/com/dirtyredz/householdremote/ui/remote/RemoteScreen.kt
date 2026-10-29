@@ -45,8 +45,8 @@ fun compactRemote(height: Dp, fontScale: Float): Boolean =
     height < 660.dp + 200.dp * (fontScale - 1f).coerceAtLeast(0f)
 
 /**
- * Stateless remote that always fits its window: nothing scrolls. Header, centred status and
- * the power row keep their size; the D-pad takes the remaining height (down to its 48 dp key
+ * Stateless remote that always fits its window: nothing scrolls. Header and the power row
+ * keep their size; the D-pad takes the remaining height (down to its 48 dp key
  * floor), and short windows or large text switch the rockers to one horizontal row.
  */
 @Composable
@@ -68,16 +68,11 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             RemoteHeader(
                 tvName = state.selected?.name,
+                connection = connectionLabel(selected, state.connection.state, state.onWifi),
                 onPickTv = callbacks.onPickTv,
                 onOverflow = callbacks.onOverflow,
                 modifier = Modifier.padding(top = 4.dp)
             )
-            ConnectionIndicator(
-                connectionLabel(selected, state.connection.state, state.onWifi),
-                callbacks.onWifiSettings,
-                Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(4.dp))
             Row(
                 Modifier.fillMaxWidth().heightIn(min = PowerButtonSize),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -85,6 +80,7 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
             ) {
                 NoticeSlot(
                     remoteNotice(power, state.connection, state.message),
+                    callbacks.onWifiSettings,
                     Modifier.weight(1f)
                 )
                 PowerControl(power, callbacks.onPower)

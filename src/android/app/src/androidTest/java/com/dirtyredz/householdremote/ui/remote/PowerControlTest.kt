@@ -44,7 +44,8 @@ class PowerControlTest {
             Row {
                 NoticeSlot(
                     remoteNotice(presentation, ConnectionStatus.initial, ""),
-                    Modifier.weight(1f)
+                    onWifiSettings = {},
+                    modifier = Modifier.weight(1f)
                 )
                 PowerControl(presentation, onToggle = { clicks++ })
             }
@@ -101,12 +102,11 @@ class PowerControlTest {
                 PowerLabel.TurnOn,
                 PowerStatus.StandbySent,
                 enabled = true,
-                busy = false,
-                notConfirmed = true
+                busy = false
             )
         )
         assertState(R.string.power_turn_on, R.string.power_status_standby_sent, enabled = true)
-        assertNotice(R.string.power_standby_not_confirmed)
+        rule.onNodeWithTag("notice", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("power_progress", useUnmergedTree = true).assertDoesNotExist()
 
         show(
@@ -118,7 +118,8 @@ class PowerControlTest {
             )
         )
         assertState(R.string.power_turn_on, R.string.power_status_no_wifi, enabled = false)
-        assertNotice(R.string.power_needs_wifi)
+        rule.onNodeWithTag("notice", useUnmergedTree = true)
+            .assertTextEquals(context.getString(R.string.connection_no_wifi))
 
         show(
             PowerPresentation(

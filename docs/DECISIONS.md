@@ -33,6 +33,8 @@ Wi-Fi: `network/AndroidWifiMonitor` (foreground only) reports whether any Wi-Fi 
 
 Rejected: keeping a scroll container for large text (owner ruling), a Snackbar host (it overlays the shortcuts and needs event plumbing for repeated messages), centring the status inside the header row, gating on the default network only (a VPN or mobile-data default would hide a usable Wi-Fi), and leaving Turn on enabled off Wi-Fi (the wake broadcast cannot leave the phone).
 
+Owner refinement after the v0.2.1 phone check (2026-10-28): the TV picker and a short, non-wrapping connection label now share the header; the name yields width first. Longer unavailable/Wi-Fi explanations and the Wi-Fi action moved to the notice slot. Accepted standby deliberately leaves that slot empty, and removing the Apps heading gives its height to the D-pad. This supersedes the earlier centred-status and visible standby-notice choices above without changing connection or power state.
+
 ## ADR: Foreground-only automatic reconnect with a heartbeat (2026-10-28)
 
 Status: accepted (implements the dk-4bbfb674 fix spec, `docs/plans/connection-reconnect.md`).

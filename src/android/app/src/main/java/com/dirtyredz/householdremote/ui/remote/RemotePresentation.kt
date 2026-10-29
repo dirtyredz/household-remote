@@ -23,7 +23,6 @@ data class PowerPresentation(
     val status: PowerStatus,
     val enabled: Boolean,
     val busy: Boolean,
-    val notConfirmed: Boolean = false,
     val error: String? = null
 )
 
@@ -67,7 +66,6 @@ fun powerPresentation(
             PowerStatus.StandbySent,
             enabled = true,
             busy = false,
-            notConfirmed = true,
             error = power.error
         )
 
@@ -90,7 +88,6 @@ fun powerPresentation(
 }
 
 enum class ConnectionLabel {
-    SelectTv,
     Connected,
     Connecting,
     Reconnecting,
@@ -100,15 +97,15 @@ enum class ConnectionLabel {
     NotOnWifi
 }
 
-/** "Phone not on Wi-Fi" outranks everything: no TV is reachable and nothing is attempted. */
+/** No selection has no header status; otherwise no Wi-Fi outranks the session state. */
 fun connectionLabel(
     hasSelection: Boolean,
     connection: ConnectionState,
     onWifi: Boolean
-): ConnectionLabel = when {
-    !onWifi -> ConnectionLabel.NotOnWifi
+): ConnectionLabel? = when {
+    !hasSelection -> null
 
-    !hasSelection -> ConnectionLabel.SelectTv
+    !onWifi -> ConnectionLabel.NotOnWifi
 
     else -> when (connection) {
         ConnectionState.Connected -> ConnectionLabel.Connected
@@ -132,8 +129,6 @@ sealed interface RemoteNotice {
 
     data object NotOnWifi : RemoteNotice
 
-    data object StandbyNotConfirmed : RemoteNotice
-
     /** Why the connection stopped or what it is waiting for (pairing, re-pair, approval). */
     data class Detail(val text: String) : RemoteNotice
 
@@ -144,7 +139,8 @@ sealed interface RemoteNotice {
 private val quietOffline = setOf(
     "",
     ConnectionStatus.initial.message,
-    ConnectionStatus.DISCONNECTED
+    ConnectionStatus.DISCONNECTED,
+    ConnectionStatus.AFTER_STANDBY
 )
 
 fun remoteNotice(
@@ -155,9 +151,9 @@ fun remoteNotice(
     power.error?.let { return RemoteNotice.Error(it) }
     if (power.busy) return RemoteNotice.Progress(power.label)
     if (power.status == PowerStatus.NotOnWifi) return RemoteNotice.NotOnWifi
-    if (power.notConfirmed) return RemoteNotice.StandbyNotConfirmed
     val detail = when (connection.state) {
         ConnectionState.AwaitingApproval -> connection.message
+        ConnectionState.Unavailable -> connection.message
         ConnectionState.Offline -> connection.message.takeUnless { it in quietOffline }
         else -> null
     }

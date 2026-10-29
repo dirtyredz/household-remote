@@ -1,7 +1,12 @@
 package com.dirtyredz.householdremote.ui.remote
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,6 +20,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
 import kotlinx.coroutines.delay
 
@@ -26,7 +32,8 @@ const val MESSAGE_VISIBLE_MS = 4_000L
  * nothing to say. Errors use the error color. Changes are announced politely.
  */
 @Composable
-fun NoticeSlot(notice: RemoteNotice?, modifier: Modifier = Modifier) {
+@OptIn(ExperimentalLayoutApi::class)
+fun NoticeSlot(notice: RemoteNotice?, onWifiSettings: () -> Unit, modifier: Modifier = Modifier) {
     var expired by remember(notice) { mutableStateOf(false) }
     if (notice is RemoteNotice.Message) {
         LaunchedEffect(notice) {
@@ -38,23 +45,44 @@ fun NoticeSlot(notice: RemoteNotice?, modifier: Modifier = Modifier) {
         null -> null
         is RemoteNotice.Error -> notice.text
         is RemoteNotice.Progress -> stringResource(powerLabelText(notice.label))
-        RemoteNotice.NotOnWifi -> stringResource(R.string.power_needs_wifi)
-        RemoteNotice.StandbyNotConfirmed -> stringResource(R.string.power_standby_not_confirmed)
+        RemoteNotice.NotOnWifi -> stringResource(R.string.connection_no_wifi)
         is RemoteNotice.Detail -> notice.text
         is RemoteNotice.Message -> notice.text.takeUnless { expired }
     } ?: return
-    Text(
-        text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (notice is RemoteNotice.Error) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier.testTag(
-            if (notice is RemoteNotice.Error) "power_error" else "notice"
-        ).semantics { liveRegion = LiveRegionMode.Polite }
-    )
+    val tagged = Modifier.testTag(
+        if (notice is RemoteNotice.Error) "power_error" else "notice"
+    ).semantics { liveRegion = LiveRegionMode.Polite }
+    if (notice == RemoteNotice.NotOnWifi) {
+        FlowRow(
+            modifier,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = tagged
+            )
+            TextButton(
+                onClick = onWifiSettings,
+                modifier = Modifier.heightIn(min = 48.dp).testTag("wifi_settings")
+            ) { Text(stringResource(R.string.connection_wifi_settings), maxLines = 1) }
+        }
+    } else {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (notice is RemoteNotice.Error) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = modifier.then(tagged)
+        )
+    }
 }

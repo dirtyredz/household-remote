@@ -57,7 +57,6 @@ class RemotePresentationTest {
         val standby = p(ConnectionState.Connected, PowerState(standbySent = true))
         assertEquals(PowerLabel.TurnOn, standby.label)
         assertEquals(PowerStatus.StandbySent, standby.status)
-        assertTrue(standby.notConfirmed)
         val failed = p(power = PowerState(error = "TV not ready"))
         assertEquals("TV not ready", failed.error)
         assertTrue("failure keeps the action available", failed.enabled)
@@ -66,7 +65,7 @@ class RemotePresentationTest {
     @Test fun connectionLabels() {
         fun label(state: ConnectionState, selected: Boolean = true, onWifi: Boolean = true) =
             connectionLabel(selected, state, onWifi)
-        assertEquals(ConnectionLabel.SelectTv, label(ConnectionState.Connected, selected = false))
+        assertNull(label(ConnectionState.Connected, selected = false))
         assertEquals(ConnectionLabel.Connected, label(ConnectionState.Connected))
         assertEquals(ConnectionLabel.Connecting, label(ConnectionState.Connecting))
         assertEquals(ConnectionLabel.ApproveOnTv, label(ConnectionState.AwaitingApproval))
@@ -80,10 +79,7 @@ class RemotePresentationTest {
                 label(state, onWifi = false)
             )
         }
-        assertEquals(
-            ConnectionLabel.NotOnWifi,
-            label(ConnectionState.Offline, selected = false, onWifi = false)
-        )
+        assertNull(label(ConnectionState.Offline, selected = false, onWifi = false))
     }
 
     @Test fun recoveringSessionIsNeverShownAsOn() {
@@ -107,7 +103,6 @@ class RemotePresentationTest {
             onWifi = false
         )
         assertEquals(PowerStatus.NotOnWifi, afterStandby.status)
-        assertFalse(afterStandby.notConfirmed)
         val waking = powerPresentation(
             true,
             ConnectionState.Offline,
@@ -145,11 +140,9 @@ class RemotePresentationTest {
             PowerLabel.TurnOn,
             PowerStatus.StandbySent,
             true,
-            false,
-            notConfirmed = true
+            false
         )
-        assertEquals(
-            RemoteNotice.StandbyNotConfirmed,
+        assertNull(
             remoteNotice(
                 standby,
                 ConnectionStatus.offline(ConnectionStatus.AFTER_STANDBY),
@@ -179,11 +172,19 @@ class RemotePresentationTest {
             RemoteNotice.Detail(approve),
             remoteNotice(off, ConnectionStatus(ConnectionState.AwaitingApproval, approve), "")
         )
+        assertEquals(
+            RemoteNotice.Detail(ConnectionStatus.UNAVAILABLE),
+            remoteNotice(
+                off,
+                ConnectionStatus(ConnectionState.Unavailable, ConnectionStatus.UNAVAILABLE),
+                ""
+            )
+        )
         for (quiet in listOf(
             ConnectionStatus.initial,
             ConnectionStatus.offline(ConnectionStatus.DISCONNECTED),
             ConnectionStatus(ConnectionState.Reconnecting, ConnectionStatus.RECONNECTING),
-            ConnectionStatus(ConnectionState.Unavailable, ConnectionStatus.UNAVAILABLE)
+            ConnectionStatus.offline(ConnectionStatus.AFTER_STANDBY)
         )) {
             assertNull("the indicator already says ${quiet.message}", remoteNotice(off, quiet, ""))
         }
