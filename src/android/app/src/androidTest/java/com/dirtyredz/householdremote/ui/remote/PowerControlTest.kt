@@ -1,10 +1,8 @@
 package com.dirtyredz.householdremote.ui.remote
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -12,7 +10,6 @@ import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -21,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dirtyredz.householdremote.R
-import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.ui.theme.RemoteTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -34,20 +30,13 @@ class PowerControlTest {
     @get:Rule val rule = createComposeRule()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private var presentation by mutableStateOf(
-        PowerPresentation(PowerLabel.Power, PowerStatus.SelectTv, enabled = false, busy = false)
+        PowerPresentation(PowerLabel.Power, PowerStatus.SelectTv, enabled = false)
     )
     private var clicks = 0
 
-    /** The power row as the remote mounts it: notice slot beside the round button. */
     private fun mount() = rule.setContent {
         RemoteTheme {
-            Row {
-                NoticeSlot(
-                    remoteNotice(presentation, ConnectionStatus.initial, ""),
-                    Modifier.weight(1f)
-                )
-                PowerControl(presentation, onToggle = { clicks++ })
-            }
+            PowerControl(presentation, onToggle = { clicks++ })
         }
     }
 
@@ -67,22 +56,18 @@ class PowerControlTest {
         )
         if (enabled) node.assertIsEnabled() else node.assertIsNotEnabled()
         node.assertWidthIsEqualTo(56.dp).assertHeightIsEqualTo(56.dp)
+        rule.onNodeWithTag("power_icon", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("power_progress", useUnmergedTree = true).assertDoesNotExist()
     }
-
-    private fun assertNotice(text: Int) =
-        rule.onNodeWithTag("notice", useUnmergedTree = true).assertTextEquals(
-            context.getString(text)
-        )
 
     @Test fun everyTableStateRendersItsActionStatusAndAvailability() {
         mount()
         assertState(R.string.power_label, R.string.power_status_select_tv, enabled = false)
-        rule.onNodeWithTag("notice", useUnmergedTree = true).assertDoesNotExist()
 
-        show(PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true, false))
+        show(PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true))
         assertState(R.string.power_turn_off, R.string.power_status_on, enabled = true)
 
-        show(PowerPresentation(PowerLabel.TurnOn, PowerStatus.OffOrUnreachable, true, false))
+        show(PowerPresentation(PowerLabel.TurnOn, PowerStatus.OffOrUnreachable, true))
         assertState(R.string.power_turn_on, R.string.power_status_off, enabled = true)
 
         for ((label, text) in listOf(
@@ -90,63 +75,41 @@ class PowerControlTest {
             PowerLabel.Connecting to R.string.power_connecting,
             PowerLabel.TurningOff to R.string.power_turning_off
         )) {
-            show(PowerPresentation(label, PowerStatus.InProgress, enabled = false, busy = true))
+            show(PowerPresentation(label, PowerStatus.InProgress, enabled = false))
             assertState(text, R.string.power_status_in_progress, enabled = false)
-            rule.onNodeWithTag("power_progress", useUnmergedTree = true).assertExists()
-            assertNotice(text)
         }
 
         show(
             PowerPresentation(
                 PowerLabel.TurnOn,
                 PowerStatus.StandbySent,
-                enabled = true,
-                busy = false,
-                notConfirmed = true
+                enabled = true
             )
         )
         assertState(R.string.power_turn_on, R.string.power_status_standby_sent, enabled = true)
-        assertNotice(R.string.power_standby_not_confirmed)
-        rule.onNodeWithTag("power_progress", useUnmergedTree = true).assertDoesNotExist()
 
         show(
             PowerPresentation(
                 PowerLabel.TurnOn,
                 PowerStatus.NotOnWifi,
-                enabled = false,
-                busy = false
+                enabled = false
             )
         )
         assertState(R.string.power_turn_on, R.string.power_status_no_wifi, enabled = false)
-        assertNotice(R.string.power_needs_wifi)
-
-        show(
-            PowerPresentation(
-                PowerLabel.TurnOn,
-                PowerStatus.OffOrUnreachable,
-                enabled = true,
-                busy = false,
-                error = "TV not ready; check Wi-Fi wake settings"
-            )
-        )
-        assertState(R.string.power_turn_on, R.string.power_status_off, enabled = true)
-        rule.onNodeWithTag("power_error", useUnmergedTree = true).assertTextEquals(
-            "TV not ready; check Wi-Fi wake settings"
-        )
     }
 
     @Test fun enabledPressCallsOnceAndBusyPressesDoNothing() {
-        presentation = PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true, false)
+        presentation = PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true)
         mount()
         rule.onNodeWithTag("power").performClick()
         assertEquals(1, clicks)
-        show(PowerPresentation(PowerLabel.TurningOff, PowerStatus.InProgress, false, true))
+        show(PowerPresentation(PowerLabel.TurningOff, PowerStatus.InProgress, false))
         repeat(3) { rule.onNodeWithTag("power").performClick() }
         assertEquals(1, clicks)
-        show(PowerPresentation(PowerLabel.TurnOn, PowerStatus.NotOnWifi, false, false))
+        show(PowerPresentation(PowerLabel.TurnOn, PowerStatus.NotOnWifi, false))
         rule.onNodeWithTag("power").performClick()
         assertEquals(1, clicks)
-        show(PowerPresentation(PowerLabel.Power, PowerStatus.SelectTv, false, false))
+        show(PowerPresentation(PowerLabel.Power, PowerStatus.SelectTv, false))
         rule.onNodeWithTag("power").performClick()
         assertEquals(1, clicks)
     }

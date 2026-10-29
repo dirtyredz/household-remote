@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 class KeyDispatcher(
     private val scope: CoroutineScope,
     private val send: (String) -> Boolean,
-    private val status: (String) -> Unit,
+    private val dropped: () -> Unit,
     private val pendingMs: Long = PENDING_KEY_MS
 ) {
     private var channel: Channel<String>? = null
@@ -40,7 +40,7 @@ class KeyDispatcher(
             scope.launch {
                 for (frame in queue) {
                     if (!send(frame)) {
-                        status("Disconnected; input discarded")
+                        dropped()
                         cancel()
                         break
                     }
@@ -63,8 +63,7 @@ class KeyDispatcher(
 
     /**
      * Holds one ordinary key while no session is usable. Rejects KEY_POWER, a second key, and
-     * any key while a queue is live. The key expires (with a visible message) if no session
-     * starts within [pendingMs].
+     * any key while a queue is live. The key expires if no session starts within [pendingMs].
      */
     fun hold(key: String): Boolean {
         if (key == POWER || channel != null || pending != null) return false
@@ -74,7 +73,7 @@ class KeyDispatcher(
             delay(pendingMs)
             pending = null
             pendingExpiry = null
-            status(KEY_EXPIRED)
+            dropped()
         }
         return true
     }
@@ -107,7 +106,6 @@ class KeyDispatcher(
 
     companion object {
         const val PENDING_KEY_MS = 5_000L
-        const val KEY_EXPIRED = "Key not sent; TV still reconnecting"
         private const val POWER = "KEY_POWER"
     }
 }

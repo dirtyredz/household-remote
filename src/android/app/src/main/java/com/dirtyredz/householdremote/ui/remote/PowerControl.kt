@@ -2,7 +2,6 @@ package com.dirtyredz.householdremote.ui.remote
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -29,9 +28,8 @@ fun powerLabelText(label: PowerLabel): Int = when (label) {
 }
 
 /**
- * Round red power key. It speaks what a press will do (its description) and what is
- * inferred about the TV (its state description); a spinner replaces the icon while power
- * work runs. Progress, standby and error text live in the [NoticeSlot] beside it.
+ * Round red power key. Its white power icon never changes; TalkBack speaks the current
+ * action and inferred TV state. Disabled state may reduce the control's alpha.
  */
 @Composable
 fun PowerControl(power: PowerPresentation, onToggle: () -> Unit, modifier: Modifier = Modifier) {
@@ -51,8 +49,7 @@ fun PowerControl(power: PowerPresentation, onToggle: () -> Unit, modifier: Modif
         onClick = onToggle,
         enabled = power.enabled,
         shape = CircleShape,
-        // Busy keeps the full red so the spinner reads as "working", not "unavailable".
-        color = if (power.enabled || power.busy) {
+        color = if (power.enabled) {
             RemotePowerRed
         } else {
             RemotePowerRed.copy(alpha = 0.38f)
@@ -61,18 +58,11 @@ fun PowerControl(power: PowerPresentation, onToggle: () -> Unit, modifier: Modif
         tag = "power",
         modifier = modifier.size(PowerButtonSize).semantics { stateDescription = status }
     ) {
-        if (power.busy) {
-            CircularProgressIndicator(
-                Modifier.size(24.dp).testTag("power_progress"),
-                color = Color.White,
-                strokeWidth = 2.5.dp
-            )
-        } else {
-            Icon(
-                painterResource(R.drawable.ic_remote_power),
-                contentDescription = null,
-                tint = if (power.enabled) Color.White else Color.White.copy(alpha = 0.6f)
-            )
-        }
+        Icon(
+            painterResource(R.drawable.ic_remote_power),
+            contentDescription = null,
+            modifier = Modifier.testTag("power_icon"),
+            tint = if (power.enabled) Color.White else Color.White.copy(alpha = 0.6f)
+        )
     }
 }

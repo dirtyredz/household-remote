@@ -4,15 +4,13 @@
     <string name="header_choose_tv">Choose a TV</string>
     <string name="header_picker_description">Selected TV: %1$s. Change TV</string>
     <string name="header_more">More options</string>
-    <string name="connection_select_tv">Select a TV</string>
     <string name="connection_connected">Connected</string>
     <string name="connection_connecting">Connecting…</string>
     <string name="connection_reconnecting">Reconnecting…</string>
     <string name="connection_approve">Approve on TV</string>
-    <string name="connection_unavailable">TV unavailable — check Wi-Fi or Wake</string>
+    <string name="connection_unavailable_short">Unavailable</string>
     <string name="connection_offline">Offline</string>
-    <string name="connection_no_wifi">Phone not on Wi-Fi</string>
-    <string name="connection_wifi_settings">Wi-Fi settings</string>
+    <string name="connection_no_wifi_short">No Wi-Fi</string>
 
     <!-- Power: the label is the action; the status is inferred, never panel telemetry -->
     <string name="power_label">Power</string>
@@ -27,8 +25,6 @@
     <string name="power_status_standby_sent">Standby sent</string>
     <string name="power_status_in_progress">Working…</string>
     <string name="power_status_no_wifi">Phone not on Wi-Fi</string>
-    <string name="power_standby_not_confirmed">Standby sent · power off not confirmed</string>
-    <string name="power_needs_wifi">Phone not on Wi-Fi · Turn on needs Wi-Fi</string>
 
     <!-- Keys -->
     <string name="key_up">Up</string>
@@ -48,6 +44,5 @@
     <string name="rocker_channel">CH</string>
 
     <!-- App buttons -->
-    <string name="apps_title">Apps</string>
     <string name="app_not_installed">not installed on this TV</string>
 </resources>

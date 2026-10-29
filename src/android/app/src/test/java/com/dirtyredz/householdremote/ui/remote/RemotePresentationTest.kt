@@ -3,9 +3,7 @@ package com.dirtyredz.householdremote.ui.remote
 import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.power.PowerPhase
 import com.dirtyredz.householdremote.power.PowerState
-import com.dirtyredz.householdremote.remote.ConnectionFailure
 import com.dirtyredz.householdremote.remote.ConnectionState
-import com.dirtyredz.householdremote.remote.ConnectionStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -24,13 +22,12 @@ class RemotePresentationTest {
             PowerPresentation(
                 PowerLabel.Power,
                 PowerStatus.SelectTv,
-                enabled = false,
-                busy = false
+                enabled = false
             ),
             p(ConnectionState.Connected, selected = false)
         )
         assertEquals(
-            PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true, false),
+            PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true),
             p(ConnectionState.Connected)
         )
         for (offline in listOf(
@@ -40,7 +37,7 @@ class RemotePresentationTest {
         )) {
             assertEquals(
                 "a session that is not usable is never shown as on",
-                PowerPresentation(PowerLabel.TurnOn, PowerStatus.OffOrUnreachable, true, false),
+                PowerPresentation(PowerLabel.TurnOn, PowerStatus.OffOrUnreachable, true),
                 p(offline)
             )
         }
@@ -52,21 +49,18 @@ class RemotePresentationTest {
             val busy = p(ConnectionState.Connected, PowerState(phase = phase))
             assertEquals(label, busy.label)
             assertFalse(busy.enabled)
-            assertTrue(busy.busy)
         }
         val standby = p(ConnectionState.Connected, PowerState(standbySent = true))
         assertEquals(PowerLabel.TurnOn, standby.label)
         assertEquals(PowerStatus.StandbySent, standby.status)
-        assertTrue(standby.notConfirmed)
         val failed = p(power = PowerState(error = "TV not ready"))
-        assertEquals("TV not ready", failed.error)
         assertTrue("failure keeps the action available", failed.enabled)
     }
 
     @Test fun connectionLabels() {
         fun label(state: ConnectionState, selected: Boolean = true, onWifi: Boolean = true) =
             connectionLabel(selected, state, onWifi)
-        assertEquals(ConnectionLabel.SelectTv, label(ConnectionState.Connected, selected = false))
+        assertNull(label(ConnectionState.Connected, selected = false))
         assertEquals(ConnectionLabel.Connected, label(ConnectionState.Connected))
         assertEquals(ConnectionLabel.Connecting, label(ConnectionState.Connecting))
         assertEquals(ConnectionLabel.ApproveOnTv, label(ConnectionState.AwaitingApproval))
@@ -80,10 +74,7 @@ class RemotePresentationTest {
                 label(state, onWifi = false)
             )
         }
-        assertEquals(
-            ConnectionLabel.NotOnWifi,
-            label(ConnectionState.Offline, selected = false, onWifi = false)
-        )
+        assertNull(label(ConnectionState.Offline, selected = false, onWifi = false))
     }
 
     @Test fun recoveringSessionIsNeverShownAsOn() {
@@ -99,7 +90,6 @@ class RemotePresentationTest {
         assertEquals(PowerLabel.TurnOn, idle.label)
         assertEquals(PowerStatus.NotOnWifi, idle.status)
         assertFalse(idle.enabled)
-        assertFalse(idle.busy)
         val afterStandby = powerPresentation(
             true,
             ConnectionState.Offline,
@@ -107,86 +97,17 @@ class RemotePresentationTest {
             onWifi = false
         )
         assertEquals(PowerStatus.NotOnWifi, afterStandby.status)
-        assertFalse(afterStandby.notConfirmed)
         val waking = powerPresentation(
             true,
             ConnectionState.Offline,
             PowerState(phase = PowerPhase.Waking),
             onWifi = false
         )
-        assertTrue("work already running keeps its progress", waking.busy)
+        assertFalse("work already running keeps power disabled", waking.enabled)
         assertEquals(
             PowerStatus.SelectTv,
             powerPresentation(false, ConnectionState.Offline, PowerState(), false).status
         )
-    }
-
-    @Test fun noticePriorityIsPowerThenConnectionDetailThenFeedback() {
-        val connected = ConnectionStatus(ConnectionState.Connected, "Connected")
-        val on = PowerPresentation(PowerLabel.TurnOff, PowerStatus.OnConnected, true, false)
-        assertNull("nothing to say", remoteNotice(on, connected, ""))
-        assertEquals(
-            RemoteNotice.Message("Opening Netflix…"),
-            remoteNotice(on, connected, "Opening Netflix…")
-        )
-        assertEquals(
-            RemoteNotice.Error("TV not ready"),
-            remoteNotice(on.copy(error = "TV not ready"), connected, "Opening Netflix…")
-        )
-        assertEquals(
-            RemoteNotice.Progress(PowerLabel.TurningOn),
-            remoteNotice(
-                PowerPresentation(PowerLabel.TurningOn, PowerStatus.InProgress, false, true),
-                connected,
-                "x"
-            )
-        )
-        val standby = PowerPresentation(
-            PowerLabel.TurnOn,
-            PowerStatus.StandbySent,
-            true,
-            false,
-            notConfirmed = true
-        )
-        assertEquals(
-            RemoteNotice.StandbyNotConfirmed,
-            remoteNotice(
-                standby,
-                ConnectionStatus.offline(ConnectionStatus.AFTER_STANDBY),
-                ""
-            )
-        )
-        val noWifi = powerPresentation(true, ConnectionState.Unavailable, PowerState(), false)
-        assertEquals(
-            RemoteNotice.NotOnWifi,
-            remoteNotice(noWifi, ConnectionStatus.offline(ConnectionStatus.NO_WIFI), "x")
-        )
-    }
-
-    @Test fun connectionDetailOnlyWhenTheIndicatorCannotSayIt() {
-        val off = PowerPresentation(PowerLabel.TurnOn, PowerStatus.OffOrUnreachable, true, false)
-        val trust = ConnectionFailure.TrustChanged
-        assertEquals(
-            RemoteNotice.Detail(trust.message),
-            remoteNotice(off, ConnectionStatus(ConnectionState.Offline, trust.message, trust), "")
-        )
-        assertEquals(
-            RemoteNotice.Detail(ConnectionStatus.PAIRING_FAILED),
-            remoteNotice(off, ConnectionStatus.offline(ConnectionStatus.PAIRING_FAILED), "")
-        )
-        val approve = "Approve TV Tuneup on TV within 90 seconds"
-        assertEquals(
-            RemoteNotice.Detail(approve),
-            remoteNotice(off, ConnectionStatus(ConnectionState.AwaitingApproval, approve), "")
-        )
-        for (quiet in listOf(
-            ConnectionStatus.initial,
-            ConnectionStatus.offline(ConnectionStatus.DISCONNECTED),
-            ConnectionStatus(ConnectionState.Reconnecting, ConnectionStatus.RECONNECTING),
-            ConnectionStatus(ConnectionState.Unavailable, ConnectionStatus.UNAVAILABLE)
-        )) {
-            assertNull("the indicator already says ${quiet.message}", remoteNotice(off, quiet, ""))
-        }
     }
 
     @Test fun layoutRules() {

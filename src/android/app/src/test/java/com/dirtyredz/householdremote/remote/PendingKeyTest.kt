@@ -15,12 +15,12 @@ import org.junit.Test
 class PendingKeyTest {
     private class Harness(scope: TestScope) {
         val sent = mutableListOf<String>()
-        val messages = mutableListOf<String>()
+        var dropped = 0
         var accept = true
         val dispatcher = KeyDispatcher(scope, {
             if (accept) sent += it
             accept
-        }, { messages += it })
+        }, { dropped++ })
     }
 
     @Test fun oneHeldKeyIsSentOnceWhenTheSessionReturns() = runTest {
@@ -39,7 +39,7 @@ class PendingKeyTest {
         h.dispatcher.cancel()
     }
 
-    @Test fun heldKeyExpiresVisiblyAfterFiveSeconds() = runTest {
+    @Test fun heldKeyExpiresSilentlyAfterFiveSeconds() = runTest {
         val h = Harness(this)
         assertTrue(h.dispatcher.hold("KEY_UP"))
         advanceTimeBy(4_999)
@@ -48,7 +48,7 @@ class PendingKeyTest {
         advanceTimeBy(2)
         runCurrent()
         assertFalse(h.dispatcher.holding)
-        assertEquals(listOf(KeyDispatcher.KEY_EXPIRED), h.messages)
+        assertEquals(1, h.dropped)
         assertTrue("a fresh key may wait after expiry", h.dispatcher.hold("KEY_DOWN"))
         h.dispatcher.start()
         runCurrent()
@@ -68,7 +68,7 @@ class PendingKeyTest {
         advanceTimeBy(10_000)
         runCurrent()
         assertTrue(h.sent.isEmpty())
-        assertTrue(h.messages.isEmpty())
+        assertEquals(0, h.dropped)
         h.dispatcher.cancel()
     }
 

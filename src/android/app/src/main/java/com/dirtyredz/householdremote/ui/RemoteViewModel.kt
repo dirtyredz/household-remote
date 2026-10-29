@@ -2,7 +2,6 @@ package com.dirtyredz.householdremote.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.dirtyredz.householdremote.apps.AppInstall
 import com.dirtyredz.householdremote.apps.AppInstallProbe
 import com.dirtyredz.householdremote.apps.TvApp
 import com.dirtyredz.householdremote.apps.launchWithFallback
@@ -39,7 +38,7 @@ typealias RemoteSessionFactory = (
 typealias KeyDispatcherFactory = (
     CoroutineScope,
     (String) -> Boolean,
-    (String) -> Unit
+    () -> Unit
 ) -> KeyDispatcher
 
 typealias PowerControllerFactory = (
@@ -82,12 +81,7 @@ class RemoteViewModel(
             { status ->
                 val previous = mutable.value
                 val wasReady = previous.ready
-                // The indicator shows the status itself; a state change retires older feedback.
-                val changed = status.state != previous.connection.state
-                mutable.value = previous.copy(
-                    connection = status,
-                    message = if (changed) "" else previous.message
-                )
+                mutable.value = previous.copy(connection = status)
                 when {
                     // Only a new usable session starts input; a held fresh key goes out once.
                     status.ready && !wasReady -> {
@@ -106,7 +100,7 @@ class RemoteViewModel(
         dispatcher = dispatcherFactory(
             viewModelScope,
             { session.send(it) },
-            { message -> mutable.value = mutable.value.copy(message = message) }
+            {}
         )
         power = powerFactory(
             viewModelScope,
@@ -253,59 +247,42 @@ class RemoteViewModel(
     fun tap(key: String) {
         val current = state.value
         if (current.inputEnabled) {
-            if (!dispatcher.tap(key)) message(INPUT_UNAVAILABLE)
+            dispatcher.tap(key)
             return
         }
-        if (!foreground || !current.keysEnabled) return message(INPUT_UNAVAILABLE)
+        if (!foreground || !current.keysEnabled) return
         // Recovery: one fresh key may wait; a tap after recovery ran out starts a new window.
         session.resumeRecovery()
-        message(if (dispatcher.hold(key)) KEY_HELD else KEY_REJECTED)
+        dispatcher.hold(key)
     }
 
     /** One launch action on the live session; REST first, then one websocket fallback. */
     fun launch(app: TvApp) {
         val current = state.value
-        when {
-            current.install(app) == AppInstall.NotInstalled ->
-                message("${app.label} is not installed on this TV")
-
-            !current.appEnabled(app) ->
-                message("${app.label} not opened; TV not connected")
-
-            else -> {
-                val tv = requireNotNull(current.selected)
-                message("Opening ${app.label}…")
-                val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-                    val opened = try {
-                        appProbe.launchWithFallback(tv.ip, app) {
-                            foreground &&
-                                state.value.selected?.mac == tv.mac &&
-                                state.value.appEnabled(app) &&
-                                dispatcher.launch(app)
-                        }
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (_: Exception) {
-                        false
-                    }
-                    if (!opened && foreground && state.value.selected?.mac == tv.mac) {
-                        message("${app.label} not opened; launch failed")
-                    }
+        if (!current.appEnabled(app)) return
+        val tv = requireNotNull(current.selected)
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                appProbe.launchWithFallback(tv.ip, app) {
+                    foreground &&
+                        state.value.selected?.mac == tv.mac &&
+                        state.value.appEnabled(app) &&
+                        dispatcher.launch(app)
                 }
-                appLaunches += job
-                job.invokeOnCompletion { appLaunches -= job }
-                job.start()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Samsung does not confirm that an app opened; launch failures stay silent.
             }
         }
+        appLaunches += job
+        job.invokeOnCompletion { appLaunches -= job }
+        job.start()
     }
 
     private fun cancelAppLaunches() {
         appLaunches.toList().forEach(Job::cancel)
         appLaunches.clear()
-    }
-
-    private fun message(text: String) {
-        mutable.value = mutable.value.copy(message = text)
     }
 
     /** One power activation; intent is decided from the current session and off intent. */
@@ -326,11 +303,5 @@ class RemoteViewModel(
         probe.close()
         appProbe.close()
         super.onCleared()
-    }
-
-    private companion object {
-        const val INPUT_UNAVAILABLE = "Input unavailable; connect first"
-        const val KEY_HELD = "Reconnecting; key will send when connected"
-        const val KEY_REJECTED = "Still reconnecting; key not sent"
     }
 }
