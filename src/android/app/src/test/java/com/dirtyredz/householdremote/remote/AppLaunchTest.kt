@@ -1,11 +1,15 @@
 package com.dirtyredz.householdremote.remote
 
+import com.dirtyredz.householdremote.apps.RestAppLauncher
 import com.dirtyredz.householdremote.apps.TvApp
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -41,6 +45,42 @@ class AppLaunchTest {
             assertEquals(expected(id), SamsungProtocol.launch(app.appId, app.launchType))
         }
         assertEquals(listOf("Netflix", "Prime", "Disney+", "Plex"), TvApp.entries.map { it.label })
+    }
+
+    @Test fun restLauncherPostsOneEmptyBody() {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse.Builder().code(200).body("true").build())
+            server.start()
+            val launcher = RestAppLauncher(port = server.port, allowLoopback = true)
+
+            assertTrue(runBlocking { launcher.launch("127.0.0.1", TvApp.Netflix) })
+            launcher.close()
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v2/applications/${TvApp.Netflix.appId}", request.url.encodedPath)
+            assertEquals(0L, request.bodySize)
+            assertEquals(1, server.requestCount)
+        }
+    }
+
+    @Test fun restLauncherReportsHttpFailureAndRejectsPublicAddresses() {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse.Builder().code(500).body("false").build())
+            server.start()
+            val launcher = RestAppLauncher(port = server.port, allowLoopback = true)
+            assertFalse(runBlocking { launcher.launch("127.0.0.1", TvApp.Plex) })
+            launcher.close()
+            assertEquals(1, server.requestCount)
+        }
+        val launcher = RestAppLauncher()
+        try {
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { launcher.launch("8.8.8.8", TvApp.Netflix) }
+            }
+        } finally {
+            launcher.close()
+        }
     }
 
     @Test fun launchRejectsMalformedIdsAndTypes() {

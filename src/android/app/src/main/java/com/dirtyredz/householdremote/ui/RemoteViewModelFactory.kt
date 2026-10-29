@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.dirtyredz.householdremote.apps.AppInstallClient
 import com.dirtyredz.householdremote.apps.LegacyShortcuts
+import com.dirtyredz.householdremote.apps.RestAppLauncher
 import com.dirtyredz.householdremote.discovery.SsdpDiscovery
 import com.dirtyredz.householdremote.discovery.TvInfoClient
 import com.dirtyredz.householdremote.inventory.TvRepository
@@ -27,6 +28,7 @@ class RemoteViewModelFactory(private val application: Application) : ViewModelPr
             repository = TvRepository(application),
             probe = probe,
             appProbe = AppInstallClient(),
+            appLauncher = RestAppLauncher(),
             discovery = SsdpDiscovery(application, probe),
             wifi = AndroidWifiMonitor(application),
             credentials = TokenStore(application),

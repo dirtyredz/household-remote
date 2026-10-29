@@ -65,62 +65,12 @@ class AppInstallTest {
         assertEquals(TvApp.entries.associateWith { AppInstall.Unknown }, found)
     }
 
-    @Test fun launchPostsOnceAndDoesNotUseFallbackAfterHttpSuccess() {
-        MockWebServer().use { server ->
-            server.enqueue(MockResponse.Builder().code(200).body("true").build())
-            server.start()
-            val client = AppInstallClient(port = server.port, allowLoopback = true)
-            var fallbacks = 0
-
-            val opened = runBlocking {
-                client.launchWithFallback("127.0.0.1", TvApp.Netflix) {
-                    fallbacks++
-                    true
-                }
-            }
-            client.close()
-
-            assertTrue(opened)
-            assertEquals(0, fallbacks)
-            val request = server.takeRequest()
-            assertEquals("POST", request.method)
-            assertEquals("/api/v2/applications/${TvApp.Netflix.appId}", request.url.encodedPath)
-            assertEquals(0L, request.bodySize)
-            assertEquals(1, server.requestCount)
-        }
-    }
-
-    @Test fun failedRestPostUsesOneWebsocketFallback() {
-        MockWebServer().use { server ->
-            server.enqueue(MockResponse.Builder().code(500).body("false").build())
-            server.start()
-            val client = AppInstallClient(port = server.port, allowLoopback = true)
-            var fallbacks = 0
-
-            val opened = runBlocking {
-                client.launchWithFallback("127.0.0.1", TvApp.Plex) {
-                    fallbacks++
-                    true
-                }
-            }
-            client.close()
-
-            assertTrue(opened)
-            assertEquals(1, fallbacks)
-            assertEquals("POST", server.takeRequest().method)
-            assertEquals(1, server.requestCount)
-        }
-    }
-
     @Test fun onlyPrivateLanAddressesAreProbed() {
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking { AppInstallClient().installed("8.8.8.8") }
         }
         assertThrows(IllegalArgumentException::class.java) {
             runBlocking { AppInstallClient().installed("127.0.0.1") }
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { AppInstallClient().launch("8.8.8.8", TvApp.Netflix) }
         }
     }
 }
