@@ -11,8 +11,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** The power key's fill; white icons on it meet 4.5:1 contrast. */
-val RemotePowerRed = RemotePalette.power
+/** The power key's hot-pink fill; white icons on it meet 3:1 contrast. */
+val RemotePowerPink = RemotePalette.power
 
 internal val remoteColors = with(RemotePalette) {
     darkColorScheme(

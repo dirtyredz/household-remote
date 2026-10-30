@@ -13,7 +13,9 @@ class RemoteTokensTest {
         assertEquals(0xFF000000.toInt(), RemotePalette.background.toArgb())
         assertEquals(0xFF4A0F2A.toInt(), RemotePalette.glow.toArgb())
         assertEquals(0xFFFF1493.toInt(), RemoteTokens.accent.toArgb())
+        assertEquals(RemoteTokens.accent, RemotePalette.power)
         assertEquals(0xFFFFFFFF.toInt(), RemoteTokens.content.toArgb())
+        assertTrue(contrast(RemoteTokens.content, RemotePalette.power) >= 3f)
     }
 
     @Test fun disabledLabelsRemainReadableAndDistinct() {

@@ -15,9 +15,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
-import com.dirtyredz.householdremote.ui.theme.RemotePowerRed
+import com.dirtyredz.householdremote.ui.theme.RemotePowerPink
 
-/** The power button's diameter: a physical remote's red key, above the 48 dp floor. */
+/** The power button's diameter, above the 48 dp floor. */
 val PowerButtonSize = 56.dp
 
 /** The power key's dedicated row directly beneath the TV/status header. */
@@ -38,7 +38,7 @@ fun powerLabelText(label: PowerLabel): Int = when (label) {
 }
 
 /**
- * Round red power key. Its white power icon never changes; TalkBack speaks the current
+ * Round hot-pink power key. Its white power icon never changes; TalkBack speaks the current
  * action and inferred TV state. Disabled state may reduce the control's alpha.
  */
 @Composable
@@ -60,9 +60,9 @@ fun PowerControl(power: PowerPresentation, onToggle: () -> Unit, modifier: Modif
         enabled = power.enabled,
         shape = CircleShape,
         color = if (power.enabled) {
-            RemotePowerRed
+            RemotePowerPink
         } else {
-            RemotePowerRed.copy(alpha = 0.38f)
+            RemotePowerPink.copy(alpha = 0.38f)
         },
         border = null,
         minSize = PowerButtonSize,

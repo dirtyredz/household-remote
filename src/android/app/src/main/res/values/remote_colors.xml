@@ -9,7 +9,7 @@
     <color name="remote_muted">#BDBDBD</color>
     <color name="remote_disabled">#A0A0A0</color>
     <color name="remote_disabled_surface">#303030</color>
-    <color name="remote_power">#D32F2F</color>
+    <color name="remote_power">#FF1493</color>
     <color name="remote_connected">#7FD79B</color>
     <color name="remote_error">#FF8A80</color>
     <color name="remote_on_error">#3B0A06</color>

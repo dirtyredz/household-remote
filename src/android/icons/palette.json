@@ -8,7 +8,7 @@
   "muted": "#BDBDBD",
   "disabled": "#A0A0A0",
   "disabledSurface": "#303030",
-  "power": "#D32F2F",
+  "power": "#FF1493",
   "connected": "#7FD79B",
   "error": "#FF8A80",
   "onError": "#3B0A06"

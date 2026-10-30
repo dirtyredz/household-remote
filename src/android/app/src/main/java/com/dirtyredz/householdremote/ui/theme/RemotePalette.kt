@@ -13,7 +13,7 @@ internal object RemotePalette {
     val muted = Color(0xFFBDBDBD)
     val disabled = Color(0xFFA0A0A0)
     val disabledSurface = Color(0xFF303030)
-    val power = Color(0xFFD32F2F)
+    val power = Color(0xFFFF1493)
     val connected = Color(0xFF7FD79B)
     val error = Color(0xFFFF8A80)
     val onError = Color(0xFF3B0A06)
