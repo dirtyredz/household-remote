@@ -2,7 +2,7 @@
 id: dk-c083aca0
 type: feature
 created: 2026-10-30
-status: done
+status: wip
 since: 2026-10-30
 area: ui
 priority: P1
