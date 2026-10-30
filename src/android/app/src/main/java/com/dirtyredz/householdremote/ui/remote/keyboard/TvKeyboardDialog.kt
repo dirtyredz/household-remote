@@ -1,10 +1,12 @@
 package com.dirtyredz.householdremote.ui.remote.keyboard
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,6 +24,7 @@ import androidx.compose.ui.text.input.ImeAction
 import com.dirtyredz.householdremote.R
 import com.dirtyredz.householdremote.ui.remote.FitText
 import com.dirtyredz.householdremote.ui.remote.RemoteButton
+import com.dirtyredz.householdremote.ui.theme.RemoteTokens
 
 @Composable
 fun KeyboardButton(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -46,6 +49,13 @@ fun TvKeyboardDialog(onDone: (String) -> Unit, onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = RemoteTokens.surface,
+        titleContentColor = RemoteTokens.content,
+        textContentColor = RemoteTokens.content,
+        modifier = Modifier.border(
+            RemoteTokens.controlBorder(true),
+            MaterialTheme.shapes.extraLarge
+        ),
         title = { Text(stringResource(R.string.tv_keyboard)) },
         text = {
             OutlinedTextField(
@@ -53,6 +63,11 @@ fun TvKeyboardDialog(onDone: (String) -> Unit, onDismiss: () -> Unit) {
                 onValueChange = { text = it },
                 label = { Text(stringResource(R.string.tv_keyboard_text)) },
                 singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = RemoteTokens.accent,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    cursorColor = RemoteTokens.accent
+                ),
                 modifier = Modifier.focusRequester(focus),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submit() })

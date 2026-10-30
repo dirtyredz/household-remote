@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.min
 import com.dirtyredz.householdremote.R
+import com.dirtyredz.householdremote.ui.theme.RemoteTokens
 
 /** Smallest pad: 48 dp arrows above and below a 54 dp OK. Below this the floor holds. */
 val DirectionPadMin = 150.dp
@@ -45,10 +46,10 @@ fun DirectionPad(enabled: Boolean, onKey: (String) -> Unit, modifier: Modifier =
             Modifier
                 .size(side)
                 .background(
-                    MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f),
+                    RemoteTokens.ringSurface,
                     CircleShape
                 )
-                .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), CircleShape)
+                .border(1.dp, RemoteTokens.ring(enabled), CircleShape)
                 .testTag("direction_pad")
         ) {
             DirectionKey(
@@ -90,6 +91,7 @@ fun DirectionPad(enabled: Boolean, onKey: (String) -> Unit, modifier: Modifier =
                 enabled = enabled,
                 shape = CircleShape,
                 color = Color.Transparent,
+                border = null,
                 contentColor = if (enabled) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {
@@ -103,7 +105,7 @@ fun DirectionPad(enabled: Boolean, onKey: (String) -> Unit, modifier: Modifier =
                         if (enabled) {
                             MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.surfaceContainerHighest
+                            RemoteTokens.disabledHeart
                         },
                         HeartShape
                     )
@@ -130,7 +132,8 @@ private fun DirectionKey(
         enabled = enabled,
         shape = CircleShape,
         color = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.secondary,
+        border = null,
+        contentColor = RemoteTokens.accent,
         tag = "key_$key",
         modifier = modifier
     )

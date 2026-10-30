@@ -1,5 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from icons/palette.json; do not edit. -->
 <resources>
-    <!-- Keep in step with ui/theme/RemoteTheme.kt RemoteBackground. colors.xml is owned by the icon generator. -->
-    <color name="remote_background">#581B49</color>
+    <color name="remote_background">#000000</color>
+    <color name="remote_glow">#4A0F2A</color>
+    <color name="remote_surface">#111111</color>
+    <color name="remote_control">#1C1C1C</color>
+    <color name="remote_accent">#FF1493</color>
+    <color name="remote_text">#FFFFFF</color>
+    <color name="remote_muted">#BDBDBD</color>
+    <color name="remote_disabled">#A0A0A0</color>
+    <color name="remote_disabled_surface">#303030</color>
+    <color name="remote_power">#D32F2F</color>
+    <color name="remote_connected">#7FD79B</color>
+    <color name="remote_error">#FF8A80</color>
+    <color name="remote_on_error">#3B0A06</color>
 </resources>

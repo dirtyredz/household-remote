@@ -1,6 +1,7 @@
 package com.dirtyredz.householdremote.ui.remote
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.dirtyredz.householdremote.ui.theme.RemoteTokens
 
 /** One rocker key: icon, spoken description and the key it sends. */
 class RockerKey(val icon: Int, val description: String, val key: String)
@@ -34,9 +36,9 @@ fun RemoteRocker(
 ) {
     val background =
         modifier.background(
-            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
+            RemoteTokens.rockerSurface,
             MaterialTheme.shapes.large
-        )
+        ).border(RemoteTokens.controlBorder(enabled), MaterialTheme.shapes.large)
     if (horizontal) {
         Row(background, verticalAlignment = Alignment.CenterVertically) {
             RockerButton(down, enabled, onKey, Modifier.size(48.dp))
@@ -70,6 +72,7 @@ private fun RockerButton(
         modifier,
         enabled,
         MaterialTheme.shapes.large,
+        border = null,
         tag = "key_${key.key}"
     )
 }

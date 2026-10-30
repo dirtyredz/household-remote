@@ -63,13 +63,13 @@ Status: accepted.
 
 Each phone pairs independently. Explicit pairing is the only time a first-seen TV leaf certificate may be accepted; reconnects pin that certificate by SHA-256, and a changed certificate requires an attended re-pair while watching the intended TV. Tokens and pins are AES-GCM encrypted with a non-exportable Android Keystore key and stored in no-backup files, with the TV MAC as authenticated data. This contains a compromised or restored credential file and prevents discovery HTTP or TV-specific trust exceptions from weakening the public update path.
 
-## ADR: Berry gradient, heart OK and matching launcher icon (2026-10-30)
+## ADR: Black, hot pink, heart OK and matching launcher icon (2026-10-30)
 
-Status: accepted (owner and household choice, dk-c083aca0; mockup C and icon concept 3).
+Status: accepted (household feedback on v0.2.4, dk-c083aca0 final pick: mockup F and icon-4). Replaces the earlier berry/purple gradient: the household requested no purple and a stronger hot pink on dominant black.
 
-The remote uses a #581B49 to #24133D vertical gradient, #392548 plum surfaces, #FF80BF pink, #BC9AFF lavender and #FFF7FC text. The gradient is drawn before safe-area padding, behind the transparent dark-style system bars; native startup uses its berry top colour. Shared controls use translucent plum and muted but readable disabled content. The OK heart is decorative behind the existing circular Surface, preserving the target size, ripple, OK label and KEY_ENTER action. Its disabled fill is muted plum. The ring and directional arrows use lavender. Power remains the existing red, and all layout and input rules are unchanged.
+The remote uses black #000000 with a soft #4A0F2A dark-rose radial glow centred on the measured D-pad, including compact layouts. Opaque #111111/#1C1C1C charcoal controls have faint hot-pink outlines; #FF1493 colours the ring, arrows and heart, with white OK text. Disabled controls use neutral grey content/outlines and a charcoal heart, while Offline retains its hollow indicator and readable label. Power remains red and Connected green. Layout, touch targets, semantics and input rules are unchanged. The Keyboard control shares the button tokens; its dialog uses charcoal, white text and a pink focus/cursor.
 
-The launcher uses vector heart/arrows derived from the checked-in SVG on solid purple, plus an Android 13 monochrome layer. Generated resources remain byte-checked by the icon generator. AI reference rasters are not shipped; texture and lighting from the mockups are intentionally simplified into flat vector/Compose artwork. Installed-release visual acceptance remains attended.
+Palette values live only in src/android/icons/palette.json: the icon generator emits Compose colours and Android resources and checks them byte-for-byte along with adaptive and monochrome vectors. Surface/outline/disabled treatments and the radial brush live in ui/theme/RemoteTokens.kt (dk-fcb5ee83). The launcher is a hot-pink heart and four hot-pink arrows on black. Reference texture/lighting is simplified to flat Compose/vector artwork; the launcher uses angular chevrons inside the adaptive-icon safe area. White on the specified hot pink exceeds 3:1 but not 4.5:1; disabled labels exceed 4.5:1. Installed-release visual acceptance remains pending.
 
 ## ADR: Phone keyboard submits on Done (2026-10-30)
 

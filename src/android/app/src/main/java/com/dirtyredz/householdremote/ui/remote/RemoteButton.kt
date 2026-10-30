@@ -1,6 +1,7 @@
 package com.dirtyredz.householdremote.ui.remote
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material3.Icon
@@ -20,6 +21,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.dirtyredz.householdremote.ui.theme.RemoteTokens
 
 /** Primary target size; never below Android's 48 dp minimum. */
 val RemoteTarget = 56.dp
@@ -42,10 +44,11 @@ fun RemoteButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = MaterialTheme.shapes.medium,
-    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.8f),
+    color: Color = RemoteTokens.surface,
     minSize: Dp = RemoteTarget,
     tag: String? = null,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    border: BorderStroke? = RemoteTokens.controlBorder(enabled),
     content: @Composable () -> Unit
 ) {
     val haptic = rememberKeyHaptic()
@@ -57,7 +60,8 @@ fun RemoteButton(
         enabled = enabled,
         shape = shape,
         color = color,
-        contentColor = contentColor.copy(alpha = if (enabled) 1f else 0.6f),
+        contentColor = if (enabled) contentColor else RemoteTokens.disabledContent,
+        border = border,
         modifier = modifier
             .defaultMinSize(minSize, minSize)
             .semantics {
@@ -79,9 +83,10 @@ fun RemoteIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = MaterialTheme.shapes.medium,
-    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.8f),
+    color: Color = RemoteTokens.surface,
     tag: String? = null,
-    contentColor: Color = MaterialTheme.colorScheme.onSurface
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    border: BorderStroke? = RemoteTokens.controlBorder(enabled)
 ) {
     RemoteButton(
         description,
@@ -91,7 +96,8 @@ fun RemoteIconButton(
         shape,
         color,
         tag = tag,
-        contentColor = contentColor
+        contentColor = contentColor,
+        border = border
     ) {
         Icon(painterResource(icon), contentDescription = null)
     }

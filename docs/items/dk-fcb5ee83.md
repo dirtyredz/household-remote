@@ -2,7 +2,7 @@
 id: dk-fcb5ee83
 type: task
 created: 2026-10-30
-status: todo
+status: done
 since: 2026-10-30
 area: ui
 priority: P2

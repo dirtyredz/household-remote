@@ -6,40 +6,43 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Berry startup colour; keep in step with remote_colors.xml. */
-val RemoteBackground = Color(0xFF581B49)
-val RemoteBackgroundBottom = Color(0xFF24133D)
-
 /** The power key's fill; white icons on it meet 4.5:1 contrast. */
-val RemotePowerRed = Color(0xFFD32F2F)
+val RemotePowerRed = RemotePalette.power
 
-private val colors = darkColorScheme(
-    primary = Color(0xFFFF80BF),
-    secondary = Color(0xFFBC9AFF),
-    onSecondary = Color(0xFF24133D),
-    onPrimary = Color(0xFF392548),
-    primaryContainer = Color(0xFF633250),
-    onPrimaryContainer = Color(0xFFFFF7FC),
-    background = RemoteBackground,
-    onBackground = Color(0xFFFFF7FC),
-    surface = Color(0xFF24133D),
-    onSurface = Color(0xFFFFF7FC),
-    surfaceVariant = Color(0xFF392548),
-    onSurfaceVariant = Color(0xFFDCCBDF),
-    surfaceContainer = Color(0xFF392548),
-    surfaceContainerHigh = Color(0xFF392548),
-    surfaceContainerHighest = Color(0xFF614264),
-    outline = Color(0xFFBC9AFF),
-    error = Color(0xFFFF8A80),
-    onError = Color(0xFF3B0A06),
-    tertiary = Color(0xFF7FD79B)
-)
+internal val remoteColors = with(RemotePalette) {
+    darkColorScheme(
+        primary = accent, onPrimary = text,
+        primaryContainer = glow, onPrimaryContainer = text,
+        secondary = accent, onSecondary = text,
+        secondaryContainer = control, onSecondaryContainer = text,
+        tertiary = connected, onTertiary = background,
+        tertiaryContainer = control, onTertiaryContainer = text,
+        background = background, onBackground = text,
+        surface = surface, onSurface = text,
+        surfaceVariant = control, onSurfaceVariant = muted,
+        surfaceTint = accent, inverseSurface = text, inverseOnSurface = surface,
+        inversePrimary = glow,
+        surfaceDim = surface, surfaceBright = control,
+        surfaceContainerLowest = background, surfaceContainerLow = surface,
+        surfaceContainer = surface, surfaceContainerHigh = control,
+        surfaceContainerHighest = disabledSurface,
+        outline = accent, outlineVariant = muted,
+        error = error, onError = onError,
+        errorContainer = onError, onErrorContainer = error,
+        scrim = background,
+        primaryFixed = accent, primaryFixedDim = glow,
+        onPrimaryFixed = text, onPrimaryFixedVariant = text,
+        secondaryFixed = accent, secondaryFixedDim = glow,
+        onSecondaryFixed = text, onSecondaryFixedVariant = text,
+        tertiaryFixed = connected, tertiaryFixedDim = control,
+        onTertiaryFixed = background, onTertiaryFixedVariant = text
+    )
+}
 
 private val shapes = Shapes(
     small = RoundedCornerShape(12.dp),
@@ -56,5 +59,10 @@ private val typography = Typography().let { base ->
 
 @Composable
 fun RemoteTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = colors, shapes = shapes, typography = typography, content = content)
+    MaterialTheme(
+        colorScheme = remoteColors,
+        shapes = shapes,
+        typography = typography,
+        content = content
+    )
 }

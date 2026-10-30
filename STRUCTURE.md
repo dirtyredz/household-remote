@@ -19,10 +19,10 @@
 - `ui/remote/keyboard/TvKeyboardDialog.kt`: phone draft dialog with automatic focus/soft keyboard and the manual Keyboard button; nested responsibility keeps `ui/remote/` at 12 direct files. `remote/TextInputTest` covers exact text frames and batch dispatch; `RecoveryPolicyTest` covers IME event gating/reset; `RemoteScreenTest` includes the keyboard target in layout checks.
 - `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/setup/`: TV management sheet, JSON import and pairing dialogs.
 - `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/settings/`: overflow quick-actions sheet, full-screen settings surface, and the manual update control.
-- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/theme/`: Material 3 berry/plum dark theme and gradient endpoints.
+- `src/android/app/src/main/java/com/dirtyredz/householdremote/ui/theme/`: Material 3 black/hot-pink theme; RemoteTokens owns control surfaces, outlines, disabled colours and the D-pad-centred radial background brush. RemotePalette.kt is generated from icons/palette.json.
 - `src/android/app/src/test/`: offline JVM and fake-server tests.
 - `src/android/app/src/androidTest/`: Compose UI instrumentation tests that mount pure composables with fake state; never the ViewModel, updater or a TV.
-- `src/android/icons/`: heart/arrows source SVG and deterministic adaptive/monochrome Android vector generator/check.
+- `src/android/icons/`: heart/arrows source SVG, single palette.json colour source, and deterministic generator/check for adaptive/monochrome vectors, Android colour resources and the Compose palette.
 - `src/android/releases/`: `.mjs` engines for unsigned staging, provenance, signing, manifest construction, and draft publication.
 - `src/household/`: explicit manifest export, private-data guard and offline tests. Real input is ignored `config/household.local.json`; exports stay under `.tmp/`.
 - `scripts/release/`: attended `.ps1` entry points for provisioning, signing/publication, and disposable smoke; the implementation engines live in `src/android/releases/`.

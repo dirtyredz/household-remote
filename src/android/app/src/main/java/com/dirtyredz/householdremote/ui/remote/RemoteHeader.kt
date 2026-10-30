@@ -41,6 +41,7 @@ fun RemoteHeader(
             description = stringResource(R.string.header_picker_description, name),
             onClick = onPickTv,
             color = Color.Transparent,
+            border = null,
             minSize = 48.dp,
             tag = "tv_picker",
             modifier = Modifier.weight(2f)
@@ -67,6 +68,7 @@ fun RemoteHeader(
             description = stringResource(R.string.header_more),
             onClick = onOverflow,
             color = Color.Transparent,
+            border = null,
             tag = "overflow",
             modifier = Modifier.size(48.dp)
         )

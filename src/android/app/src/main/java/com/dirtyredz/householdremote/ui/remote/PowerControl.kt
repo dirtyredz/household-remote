@@ -64,6 +64,7 @@ fun PowerControl(power: PowerPresentation, onToggle: () -> Unit, modifier: Modif
         } else {
             RemotePowerRed.copy(alpha = 0.38f)
         },
+        border = null,
         minSize = PowerButtonSize,
         tag = "power",
         modifier = modifier.size(PowerButtonSize).semantics { stateDescription = status }
