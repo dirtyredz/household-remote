@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -25,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
 import com.dirtyredz.householdremote.apps.TvApp
 import com.dirtyredz.householdremote.ui.RemoteState
+import com.dirtyredz.householdremote.ui.theme.RemoteBackground
+import com.dirtyredz.householdremote.ui.theme.RemoteBackgroundBottom
 
 /** Everything the remote surface can ask for; the route wires these to the ViewModel. */
 class RemoteCallbacks(
@@ -57,7 +60,7 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
     BoxWithConstraints(
         modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Brush.verticalGradient(listOf(RemoteBackground, RemoteBackgroundBottom)))
             .safeDrawingPadding()
             .padding(horizontal = 16.dp)
             .testTag("remote")

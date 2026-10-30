@@ -12,27 +12,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Charcoal background; keep in step with res/values/remote_colors.xml remote_background. */
-val RemoteBackground = Color(0xFF121417)
+/** Berry startup colour; keep in step with remote_colors.xml. */
+val RemoteBackground = Color(0xFF581B49)
+val RemoteBackgroundBottom = Color(0xFF24133D)
 
 /** The power key's fill; white icons on it meet 4.5:1 contrast. */
 val RemotePowerRed = Color(0xFFD32F2F)
 
 private val colors = darkColorScheme(
-    primary = Color(0xFF7CC4FA),
-    onPrimary = Color(0xFF0B2236),
-    primaryContainer = Color(0xFF1F4A6E),
-    onPrimaryContainer = Color(0xFFDCEEFF),
+    primary = Color(0xFFFF80BF),
+    secondary = Color(0xFFBC9AFF),
+    onSecondary = Color(0xFF24133D),
+    onPrimary = Color(0xFF392548),
+    primaryContainer = Color(0xFF633250),
+    onPrimaryContainer = Color(0xFFFFF7FC),
     background = RemoteBackground,
-    onBackground = Color(0xFFECEEF1),
-    surface = RemoteBackground,
-    onSurface = Color(0xFFECEEF1),
-    surfaceVariant = Color(0xFF262A30),
-    onSurfaceVariant = Color(0xFFC3C8D0),
-    surfaceContainer = Color(0xFF1C1F24),
-    surfaceContainerHigh = Color(0xFF262A30),
-    surfaceContainerHighest = Color(0xFF30353C),
-    outline = Color(0xFF8A919B),
+    onBackground = Color(0xFFFFF7FC),
+    surface = Color(0xFF24133D),
+    onSurface = Color(0xFFFFF7FC),
+    surfaceVariant = Color(0xFF392548),
+    onSurfaceVariant = Color(0xFFDCCBDF),
+    surfaceContainer = Color(0xFF392548),
+    surfaceContainerHigh = Color(0xFF392548),
+    surfaceContainerHighest = Color(0xFF614264),
+    outline = Color(0xFFBC9AFF),
     error = Color(0xFFFF8A80),
     onError = Color(0xFF3B0A06),
     tertiary = Color(0xFF7FD79B)

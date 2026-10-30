@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -17,12 +18,14 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -129,6 +132,18 @@ class RemoteScreenTest {
         rule.onNodeWithTag("tv_picker").performClick()
         rule.onNodeWithTag("overflow").performClick()
         assertEquals(listOf("power", "pick", "overflow"), events)
+    }
+
+    @Test fun heartNotchKeepsTheOriginalOkTouchTargetAndOfflineSemantics() {
+        mount(width = 360, height = 640)
+        val ok = rule.onNodeWithContentDescription(text(R.string.key_ok))
+        ok.assertIsEnabled().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+        // Above the heart's notch, but still inside the original circular OK target.
+        ok.performTouchInput { click(Offset(width * 0.5f, height * 0.1f)) }
+        assertEquals(listOf("KEY_ENTER"), keys)
+        show(connected.copy(connection = ConnectionStatus.offline("Disconnected")))
+        ok.assertIsNotEnabled().performTouchInput { click(Offset(width * 0.5f, height * 0.1f)) }
+        assertEquals(listOf("KEY_ENTER"), keys)
     }
 
     @Test fun remoteHasNoScrollAndFitsSmallAndOwnerPhones() {

@@ -42,9 +42,10 @@ fun RemoteButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = MaterialTheme.shapes.medium,
-    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.8f),
     minSize: Dp = RemoteTarget,
     tag: String? = null,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
     content: @Composable () -> Unit
 ) {
     val haptic = rememberKeyHaptic()
@@ -56,7 +57,7 @@ fun RemoteButton(
         enabled = enabled,
         shape = shape,
         color = color,
-        contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f),
+        contentColor = contentColor.copy(alpha = if (enabled) 1f else 0.6f),
         modifier = modifier
             .defaultMinSize(minSize, minSize)
             .semantics {
@@ -78,10 +79,20 @@ fun RemoteIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = MaterialTheme.shapes.medium,
-    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    tag: String? = null
+    color: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.8f),
+    tag: String? = null,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
-    RemoteButton(description, onClick, modifier, enabled, shape, color, tag = tag) {
+    RemoteButton(
+        description,
+        onClick,
+        modifier,
+        enabled,
+        shape,
+        color,
+        tag = tag,
+        contentColor = contentColor
+    ) {
         Icon(painterResource(icon), contentDescription = null)
     }
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Keep in step with ui/theme/RemoteTheme.kt RemoteBackground. colors.xml is owned by the icon generator. -->
-    <color name="remote_background">#121417</color>
+    <color name="remote_background">#581B49</color>
 </resources>

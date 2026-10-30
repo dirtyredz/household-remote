@@ -62,3 +62,11 @@ Authorized test artifacts (owner, 2026-10-28): `androidx.compose.ui:ui-test-juni
 Status: accepted.
 
 Each phone pairs independently. Explicit pairing is the only time a first-seen TV leaf certificate may be accepted; reconnects pin that certificate by SHA-256, and a changed certificate requires an attended re-pair while watching the intended TV. Tokens and pins are AES-GCM encrypted with a non-exportable Android Keystore key and stored in no-backup files, with the TV MAC as authenticated data. This contains a compromised or restored credential file and prevents discovery HTTP or TV-specific trust exceptions from weakening the public update path.
+
+## ADR: Berry gradient, heart OK and matching launcher icon (2026-10-30)
+
+Status: accepted (owner and household choice, dk-c083aca0; mockup C and icon concept 3).
+
+The remote uses a #581B49 to #24133D vertical gradient, #392548 plum surfaces, #FF80BF pink, #BC9AFF lavender and #FFF7FC text. The gradient is drawn before safe-area padding, behind the transparent dark-style system bars; native startup uses its berry top colour. Shared controls use translucent plum and muted but readable disabled content. The OK heart is decorative behind the existing circular Surface, preserving the target size, ripple, OK label and KEY_ENTER action. Its disabled fill is muted plum. The ring and directional arrows use lavender. Power remains the existing red, and all layout and input rules are unchanged.
+
+The launcher uses vector heart/arrows derived from the checked-in SVG on solid purple, plus an Android 13 monochrome layer. Generated resources remain byte-checked by the icon generator. AI reference rasters are not shipped; texture and lighting from the mockups are intentionally simplified into flat vector/Compose artwork. Installed-release visual acceptance remains attended.

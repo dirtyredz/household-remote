@@ -1,6 +1,7 @@
 package com.dirtyredz.householdremote.ui.remote
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
@@ -10,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -42,7 +44,11 @@ fun DirectionPad(enabled: Boolean, onKey: (String) -> Unit, modifier: Modifier =
         Box(
             Modifier
                 .size(side)
-                .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape)
+                .background(
+                    MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f),
+                    CircleShape
+                )
+                .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f), CircleShape)
                 .testTag("direction_pad")
         ) {
             DirectionKey(
@@ -83,10 +89,24 @@ fun DirectionPad(enabled: Boolean, onKey: (String) -> Unit, modifier: Modifier =
                 onClick = { onKey("KEY_ENTER") },
                 enabled = enabled,
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                color = Color.Transparent,
+                contentColor = if (enabled) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
                 minSize = 48.dp,
                 tag = "key_KEY_ENTER",
+                // Draw the heart without clipping the original circular touch/ripple target.
                 modifier = Modifier.size(max(54.dp, side * 0.36f)).align(Alignment.Center)
+                    .background(
+                        if (enabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHighest
+                        },
+                        HeartShape
+                    )
             ) {
                 Text(ok, style = MaterialTheme.typography.titleMedium)
             }
@@ -109,7 +129,8 @@ private fun DirectionKey(
         onClick = { onKey(key) },
         enabled = enabled,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.secondary,
         tag = "key_$key",
         modifier = modifier
     )

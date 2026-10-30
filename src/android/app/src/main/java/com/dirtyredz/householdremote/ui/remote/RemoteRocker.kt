@@ -33,7 +33,10 @@ fun RemoteRocker(
     horizontal: Boolean = false
 ) {
     val background =
-        modifier.background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.large)
+        modifier.background(
+            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
+            MaterialTheme.shapes.large
+        )
     if (horizontal) {
         Row(background, verticalAlignment = Alignment.CenterVertically) {
             RockerButton(down, enabled, onKey, Modifier.size(48.dp))
