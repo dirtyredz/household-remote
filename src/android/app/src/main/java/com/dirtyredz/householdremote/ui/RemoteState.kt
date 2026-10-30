@@ -48,6 +48,8 @@ data class RemoteState(
     fun appEnabled(app: TvApp): Boolean = inputEnabled && install(app) != AppInstall.NotInstalled
 }
 
-/** A loss of text input availability consumes keyboard intent instead of suspending it. */
-internal fun RemoteState.clearUnavailableKeyboardIntent(): RemoteState =
-    if (keyboardOpen && !inputEnabled) copy(keyboardOpen = false) else this
+/** Consumes keyboard intent and its unsent work together, so reconnect cannot restore either. */
+internal fun RemoteState.discardKeyboardIntent(discardText: () -> Unit): RemoteState {
+    discardText()
+    return if (keyboardOpen) copy(keyboardOpen = false) else this
+}

@@ -8,11 +8,17 @@ import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionFailure
 import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
+import com.dirtyredz.householdremote.remote.KeyDispatcher
+import com.dirtyredz.householdremote.remote.SamsungProtocol
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class RemoteStateTest {
     private val tv = Tv("living", "Living", "Test", "AA:BB:CC:DD:EE:FF", "192.168.1.5")
     private fun state(connection: ConnectionState, power: PowerState = PowerState()) =
@@ -78,21 +84,34 @@ class RemoteStateTest {
         assertTrue(parked.copy(onWifi = true).keysEnabled)
     }
 
-    @Test fun keyboardDoesNotReappearAfterReconnectWithoutFreshIntent() {
+    @Test fun inputDisabledDiscardsUnsentSnapshotAndEndBarrier() = runTest {
+        val sent = mutableListOf<String>()
+        val dispatcher = KeyDispatcher(
+            backgroundScope,
+            {
+                sent += it
+                true
+            },
+            {}
+        )
+        dispatcher.start()
+        repeat(16) { assertTrue(dispatcher.tap("KEY_UP")) }
+        assertTrue(dispatcher.text("unsent"))
+
         var value = state(ConnectionState.Connected).copy(keyboardOpen = true)
         assertTrue(value.keyboardVisible)
-
         value = value.copy(
             connection = ConnectionStatus(ConnectionState.Reconnecting, "Reconnecting")
-        ).clearUnavailableKeyboardIntent()
+        ).discardKeyboardIntent(dispatcher::discardText)
         assertFalse(value.keyboardOpen)
         assertFalse(value.keyboardVisible)
+        runCurrent()
+        assertEquals(List(16) { SamsungProtocol.key("KEY_UP") }, sent)
 
         value = value.copy(connection = ConnectionStatus(ConnectionState.Connected, "Connected"))
-            .clearUnavailableKeyboardIntent()
         assertFalse("reconnect must not restore stale keyboard intent", value.keyboardVisible)
-
-        value = value.copy(keyboardOpen = true).clearUnavailableKeyboardIntent()
+        value = value.copy(keyboardOpen = true)
         assertTrue("a fresh IME start or button press may reopen it", value.keyboardVisible)
+        dispatcher.cancel()
     }
 }
