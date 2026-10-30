@@ -16,3 +16,5 @@
 
 - Household inventory belongs only in ignored `config/household.local.json` or `.tmp/`; examples are fictional. The privacy gate rejects the household subnet and non-placeholder 1Password references.
 - Windows `local.properties` needs an escaped drive colon (`sdk.dir=C\:/...`); an unescaped colon can build successfully but fails release lint. Prefer `ANDROID_HOME` when setting up a new checkout. Lint can cache this error without tracking a local-properties edit; use `--rerun-tasks` on the fast gate after fixing it.
+
+- Phone keyboard: SendInputString is not assumed to replace an existing TV field; send only on Done, then Enter. There is no TV text readback, delivery acknowledgment or live sync. Some app keyboards may ignore IME events or text frames: use the manual Keyboard button, then confirm support on the real TV. A cancelled/lost-session draft is intentionally discarded, never restored or replayed.

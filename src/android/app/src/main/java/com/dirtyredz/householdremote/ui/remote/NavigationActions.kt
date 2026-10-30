@@ -14,6 +14,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
+import com.dirtyredz.householdremote.ui.remote.keyboard.KeyboardButton
 
 private data class NavigationKey(val key: String, val icon: Int, val label: Int)
 
@@ -23,10 +24,21 @@ private val navigationKeys = listOf(
     NavigationKey("KEY_SOURCE", R.drawable.ic_remote_source, R.string.key_source)
 )
 
-/** Back, Home and Source with icon and text labels. */
+/** Manual keyboard plus Back, Home and Source, sharing the existing row height. */
 @Composable
-fun NavigationActions(enabled: Boolean, onKey: (String) -> Unit, modifier: Modifier = Modifier) {
+fun NavigationActions(
+    enabled: Boolean,
+    onKey: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    keyboardEnabled: Boolean = false,
+    onKeyboard: () -> Unit = {}
+) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        KeyboardButton(
+            keyboardEnabled,
+            onKeyboard,
+            Modifier.weight(1f)
+        )
         navigationKeys.forEach { item ->
             val label = stringResource(item.label)
             RemoteButton(

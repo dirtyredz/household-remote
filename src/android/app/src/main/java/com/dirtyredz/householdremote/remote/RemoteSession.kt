@@ -26,6 +26,7 @@ class RemoteSession(
     private val status: (ConnectionStatus) -> Unit,
     private val cancelled: () -> Unit,
     private val timing: SessionTiming = SessionTiming(),
+    private val imeChanged: (Boolean) -> Unit = {},
     private val transport: TvTransport = OkHttpTvTransport(timing.pingIntervalMs)
 ) {
     private data class Target(val tv: Tv, val port: Int)
@@ -189,6 +190,10 @@ class RemoteSession(
                     if (!ready) established()
                 }
 
+                "ms.remote.imeStart" -> if (ready) imeChanged(true)
+
+                "ms.remote.imeEnd" -> imeChanged(false)
+
                 "ms.channel.unauthorized" -> dropped(id, ConnectionFailure.Denied)
             }
         } catch (_: Exception) {
@@ -293,6 +298,7 @@ class RemoteSession(
     }
 
     private fun teardownAttempt() {
+        imeChanged(false)
         attempt++
         ready = false
         attemptTimer?.cancel()

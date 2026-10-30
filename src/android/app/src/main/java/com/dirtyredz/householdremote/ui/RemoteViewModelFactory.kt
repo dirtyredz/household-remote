@@ -32,8 +32,8 @@ class RemoteViewModelFactory(private val application: Application) : ViewModelPr
             discovery = SsdpDiscovery(application, probe),
             wifi = AndroidWifiMonitor(application),
             credentials = TokenStore(application),
-            sessionFactory = { scope, credentials, status, cancelled ->
-                RemoteSession(scope, credentials, status, cancelled)
+            sessionFactory = { scope, credentials, status, cancelled, imeChanged ->
+                RemoteSession(scope, credentials, status, cancelled, imeChanged = imeChanged)
             },
             dispatcherFactory = { scope, send, status -> KeyDispatcher(scope, send, status) },
             powerFactory = { scope, link, changed ->

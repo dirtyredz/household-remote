@@ -19,7 +19,8 @@ data class RemoteState(
     val apps: Map<TvApp, AppInstall> = emptyMap(),
     val power: PowerState = PowerState(),
     /** The phone has an active Wi-Fi network (the TVs are only reachable over the LAN). */
-    val onWifi: Boolean = true
+    val onWifi: Boolean = true,
+    val keyboardOpen: Boolean = false
 ) {
     val ready: Boolean get() = connection.ready
 

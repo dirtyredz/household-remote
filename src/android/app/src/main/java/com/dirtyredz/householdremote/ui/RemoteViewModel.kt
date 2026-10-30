@@ -32,7 +32,8 @@ typealias RemoteSessionFactory = (
     CoroutineScope,
     Credentials,
     (ConnectionStatus) -> Unit,
-    () -> Unit
+    () -> Unit,
+    (Boolean) -> Unit
 ) -> RemoteSession
 
 typealias KeyDispatcherFactory = (
@@ -95,7 +96,11 @@ class RemoteViewModel(
                 }
                 power.onConnection(status)
             },
-            { dispatcher.cancel() }
+            {
+                dispatcher.cancel()
+                dismissKeyboard()
+            },
+            { active -> if (active) openKeyboard() else dismissKeyboard() }
         )
         dispatcher = dispatcherFactory(
             viewModelScope,
@@ -128,8 +133,32 @@ class RemoteViewModel(
                     return dispatcher.standby()
                 }
             },
-            { power -> mutable.value = mutable.value.copy(power = power) }
+            { power ->
+                val next = mutable.value.copy(power = power)
+                mutable.value = next.copy(keyboardOpen = next.keyboardOpen && next.inputEnabled)
+            }
         )
+    }
+
+    fun openKeyboard() {
+        if (foreground &&
+            state.value.inputEnabled
+        ) {
+            mutable.value = state.value.copy(keyboardOpen = true)
+        }
+    }
+
+    fun dismissKeyboard() {
+        mutable.value = mutable.value.copy(keyboardOpen = false)
+    }
+
+    fun sendText(text: String) {
+        if (foreground && state.value.inputEnabled &&
+            state.value.keyboardOpen
+        ) {
+            dispatcher.text(text)
+        }
+        dismissKeyboard()
     }
 
     fun start() {

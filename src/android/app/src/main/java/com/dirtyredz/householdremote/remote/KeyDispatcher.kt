@@ -8,10 +8,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Serialized input for one usable session: key taps and app launches share one queue of
+ * Serialized input for one usable session: key taps, app launches and text/Enter batches share one queue of
  * ready-to-send frames. Frames accepted by the socket are never resent; while the session
  * recovers, at most one fresh, never-submitted ordinary key may [hold] for [pendingMs] and is
- * submitted once when the next session [start]s. App launches are never held.
+ * submitted once when the next session [start]s. App launches and text are never held.
  */
 class KeyDispatcher(
     private val scope: CoroutineScope,
@@ -19,7 +19,7 @@ class KeyDispatcher(
     private val dropped: () -> Unit,
     private val pendingMs: Long = PENDING_KEY_MS
 ) {
-    private var channel: Channel<String>? = null
+    private var channel: Channel<List<String>>? = null
     private var worker: Job? = null
     private var pending: String? = null
     private var pendingExpiry: Job? = null
@@ -31,15 +31,15 @@ class KeyDispatcher(
         startQueue()
         val held = pending ?: return
         discardPending()
-        channel?.trySend(SamsungProtocol.key(held))
+        channel?.trySend(listOf(SamsungProtocol.key(held)))
     }
     private fun startQueue() {
-        val queue = Channel<String>(16)
+        val queue = Channel<List<String>>(16)
         channel = queue
         worker =
             scope.launch {
-                for (frame in queue) {
-                    if (!send(frame)) {
+                for (frames in queue) {
+                    if (!frames.all(send)) {
                         dropped()
                         cancel()
                         break
@@ -49,7 +49,7 @@ class KeyDispatcher(
     }
     fun tap(key: String): Boolean {
         val queue = channel ?: return false
-        return queue.trySend(SamsungProtocol.key(key)).isSuccess
+        return queue.trySend(listOf(SamsungProtocol.key(key))).isSuccess
     }
 
     /**
@@ -58,7 +58,15 @@ class KeyDispatcher(
      */
     fun launch(app: TvApp): Boolean {
         val queue = channel ?: return false
-        return queue.trySend(SamsungProtocol.launch(app.appId, app.launchType)).isSuccess
+        return queue.trySend(listOf(SamsungProtocol.launch(app.appId, app.launchType))).isSuccess
+    }
+
+    /** One entry: text then Enter, without interleaving or holding through recovery. */
+    fun text(text: String): Boolean {
+        val queue = channel ?: return false
+        return queue.trySend(
+            listOf(SamsungProtocol.text(text), SamsungProtocol.key("KEY_ENTER"))
+        ).isSuccess
     }
 
     /**

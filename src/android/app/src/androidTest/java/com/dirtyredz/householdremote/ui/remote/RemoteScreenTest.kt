@@ -68,15 +68,27 @@ class RemoteScreenTest {
         onLaunchApp = { events += "app:${it.name}" },
         onPickTv = { events += "pick" },
         onOverflow = { events += "overflow" },
-        onWifiSettings = { events += "wifi" }
+        onWifiSettings = { events += "wifi" },
+        onKeyboard = { events += "keyboard" }
     )
     private val mappedKeys = listOf(
         "KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_ENTER",
         "KEY_RETURN", "KEY_HOME", "KEY_SOURCE",
         "KEY_VOLUP", "KEY_VOLDOWN", "KEY_MUTE", "KEY_CHUP", "KEY_CHDOWN"
     )
-    private val allTargets = listOf("tv_picker", "overflow", "power") +
+    private val allTargets = listOf("tv_picker", "overflow", "power", "keyboard") +
         mappedKeys.map { "key_$it" } + TvApp.entries.map { "app_${it.name}" }
+
+    @Test fun keyboardRequiresUsableSession() {
+        mount()
+        rule.onNodeWithTag("keyboard").performClick()
+        assertEquals(listOf("keyboard"), events)
+        rule.runOnIdle {
+            state =
+                connected.copy(connection = ConnectionStatus(ConnectionState.Reconnecting, ""))
+        }
+        rule.onNodeWithTag("keyboard").assertIsNotEnabled()
+    }
 
     private fun mount(fontScale: Float = 1f, width: Int = 360, height: Int = 760) =
         rule.setContent {

@@ -36,7 +36,8 @@ class RemoteCallbacks(
     val onLaunchApp: (TvApp) -> Unit,
     val onPickTv: () -> Unit,
     val onOverflow: () -> Unit,
-    val onWifiSettings: () -> Unit
+    val onWifiSettings: () -> Unit,
+    val onKeyboard: () -> Unit = {}
 )
 
 /**
@@ -81,7 +82,12 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
             Spacer(Modifier.height(gap))
             DirectionPad(keys, callbacks.onKey, Modifier.weight(1f).fillMaxWidth())
             Spacer(Modifier.height(gap))
-            NavigationActions(keys, callbacks.onKey)
+            NavigationActions(
+                keys,
+                callbacks.onKey,
+                keyboardEnabled = state.inputEnabled,
+                onKeyboard = callbacks.onKeyboard
+            )
             Spacer(Modifier.height(gap))
             AudioChannelRow(keys, callbacks.onKey, horizontal = compact)
             Spacer(Modifier.height(gap))

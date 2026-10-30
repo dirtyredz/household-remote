@@ -46,6 +46,19 @@ object SamsungProtocol {
         }.toString()
     }
 
+    /** Whole UTF-8 text, submitted once on Done; no live-edit semantics assumed. */
+    fun text(text: String): String = buildJsonObject {
+        put("method", "ms.remote.control")
+        put(
+            "params",
+            buildJsonObject {
+                put("Cmd", Base64.getEncoder().encodeToString(text.toByteArray(Charsets.UTF_8)))
+                put("DataOfCmd", "base64")
+                put("TypeOfRemote", "SendInputString")
+            }
+        )
+    }.toString()
+
     /**
      * Opens an installed app by its Tizen ID over the paired remote channel. The TV answers
      * with an `ed.apps.launch` event whose data is a bare status, not an object.

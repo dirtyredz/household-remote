@@ -63,6 +63,7 @@ class RecoveryPolicyTest {
         val sockets = mutableListOf<FakeSocket>()
         val openedAt = mutableListOf<Long>()
         val statuses = mutableListOf<ConnectionStatus>()
+        var ime = false
         var cancels = 0
         var now: () -> Long = { 0 }
         val session = RemoteSession(
@@ -70,7 +71,8 @@ class RecoveryPolicyTest {
             store,
             { statuses += it },
             { cancels++ },
-            timing
+            timing,
+            imeChanged = { ime = it }
         ) { url, _, _, events ->
             FakeSocket(url, events).also {
                 sockets += it
@@ -91,6 +93,57 @@ class RecoveryPolicyTest {
         h.last.connectEvent()
         runCurrent()
         assertEquals(ConnectionState.Connected, h.state)
+    }
+
+    @Test fun imeEventsRequireConnectedSessionAndResetOnTeardown() = runTest {
+        val h = harness()
+        h.session.connect(living)
+        h.last.events.message("""{"event":"ms.remote.imeStart","data":null}""")
+        runCurrent()
+        assertFalse(h.ime)
+        h.last.connectEvent()
+        runCurrent()
+        h.last.events.message("""{"event":"ms.remote.imeStart","data":{}}""")
+        runCurrent()
+        assertTrue(h.ime)
+        h.last.events.message("""{"event":"ms.remote.imeEnd","data":0}""")
+        runCurrent()
+        assertFalse(h.ime)
+        h.last.events.message("""{"event":"ms.remote.imeStart"}""")
+        runCurrent()
+        assertTrue(h.ime)
+        val old = h.last
+        old.drop()
+        runCurrent()
+        assertFalse(h.ime)
+        old.events.message("""{"event":"ms.remote.imeStart"}""")
+        runCurrent()
+        assertFalse(h.ime)
+        h.session.disconnect()
+    }
+
+    @Test fun imeEndClosesManualInputAndSelectionDiscardsOldImeEvents() = runTest {
+        val h = harness()
+        connected(h)
+        h.ime = true // Phone's manual keyboard opened without an IME-start event.
+        h.last.events.message("""{"event":"ms.remote.imeEnd"}""")
+        runCurrent()
+        assertFalse(h.ime)
+        h.last.events.message("""{"event":"ms.remote.imeStart"}""")
+        runCurrent()
+        assertTrue(h.ime)
+        val old = h.last
+        h.session.connect(bedroom)
+        assertFalse(h.ime)
+        old.events.message("""{"event":"ms.remote.imeStart"}""")
+        runCurrent()
+        assertFalse(h.ime)
+        h.last.connectEvent()
+        h.last.events.message("""{"event":"ms.remote.imeStart"}""")
+        runCurrent()
+        assertTrue(h.ime)
+        h.session.disconnect()
+        assertFalse(h.ime)
     }
 
     @Test fun dropRetriesWithExactBackoffOneAttemptAtATimeThenReportsUnavailable() = runTest {
