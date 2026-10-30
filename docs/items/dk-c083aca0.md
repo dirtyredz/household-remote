@@ -30,3 +30,5 @@ Revision 2026-10-30 (household feedback on v0.2.4): no purple anywhere. Use hot 
 Refinement 2026-10-30: a subtle background gradient is acceptable if it runs from black to a dark rose pink. The black stays dominant, there is still no purple, and hot pink remains the accent. Mockups for the final pick are in .tmp/ui-redesign/mockups-v2.
 
 Final pick 2026-10-30: mockup F (.tmp/ui-redesign/mockups-v2/mockup-F.png) with icon-4. The background is black (#000000) with a soft dark-rose radial glow (#4A0F2A) behind the d-pad. Surfaces are #1C1C1C and #111111, and buttons have a faint hot-pink outline. Hot pink is #FF1493, used for the heart OK, arrows, ring and accents; text is #FFFFFF. The power button stays red and the Connected dot stays green. The icon is a hot-pink heart with four hot-pink arrows on black.
+
+Owner change 2026-10-30: the power button is hot pink too (#FF1493, the palette primary), replacing the red. Its icon and contrast must stay legible, and pressed or busy states must stay distinct. The heart in the launcher icon is slightly too large; shrink it by about 15 to 20 percent so it sits comfortably inside the arrows and the adaptive-icon safe zone.
