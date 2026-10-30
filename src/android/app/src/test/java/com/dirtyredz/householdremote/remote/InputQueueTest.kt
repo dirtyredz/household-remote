@@ -29,6 +29,37 @@ class InputQueueTest {
         assertTrue(queue.snapshot("new session"))
     }
 
+    @Test fun keyBetweenSnapshotsKeepsItsQueuePosition() {
+        val queue = InputQueue()
+        assertTrue(queue.snapshot("a"))
+        assertTrue(queue.add(InputEntry.Key("X")))
+        assertTrue(queue.snapshot("ab"))
+
+        assertEquals("a", queue.removeFirst().frame)
+        assertEquals(InputEntry.Key("X"), queue.removeFirst())
+        assertEquals("ab", queue.removeFirst().frame)
+    }
+
+    @Test fun launchBetweenSnapshotsKeepsItsQueuePosition() {
+        val queue = InputQueue()
+        assertTrue(queue.snapshot("a"))
+        assertTrue(queue.add(InputEntry.Launch("launch")))
+        assertTrue(queue.snapshot("ab"))
+
+        assertEquals("a", queue.removeFirst().frame)
+        assertEquals(InputEntry.Launch("launch"), queue.removeFirst())
+        assertEquals("ab", queue.removeFirst().frame)
+    }
+
+    @Test fun adjacentSnapshotsStillCoalesce() {
+        val queue = InputQueue()
+        assertTrue(queue.snapshot("a"))
+        assertTrue(queue.snapshot("ab"))
+
+        assertEquals("ab", queue.removeFirst().frame)
+        assertFalse(queue.isNotEmpty)
+    }
+
     @Test fun discardingTextPreservesControlsAndRemovesTheEndBarrier() {
         val queue = InputQueue()
         val key = InputEntry.Key("key")

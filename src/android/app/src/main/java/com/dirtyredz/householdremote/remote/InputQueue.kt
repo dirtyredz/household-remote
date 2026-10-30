@@ -30,6 +30,7 @@ internal class InputQueue(private val controlLimit: Int = CONTROL_LIMIT) {
             return false
         }
         entries.addLast(entry)
+        liveSnapshot = null
         return true
     }
 
