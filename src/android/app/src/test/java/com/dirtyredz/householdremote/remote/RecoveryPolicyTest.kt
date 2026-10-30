@@ -63,6 +63,7 @@ class RecoveryPolicyTest {
         val sockets = mutableListOf<FakeSocket>()
         val openedAt = mutableListOf<Long>()
         val statuses = mutableListOf<ConnectionStatus>()
+        val tokensAtConnected = mutableListOf<String>()
         var ime = false
         var imeStarts = 0
         var cancels = 0
@@ -70,7 +71,10 @@ class RecoveryPolicyTest {
         val session = RemoteSession(
             scope,
             store,
-            { statuses += it },
+            {
+                statuses += it
+                if (it.state == ConnectionState.Connected) tokensAtConnected += store.token
+            },
             { cancels++ },
             timing,
             imeChanged = {
@@ -418,6 +422,15 @@ class RecoveryPolicyTest {
         assertEquals("no input cancellation", cancels, h.cancels)
         assertEquals(1, h.statuses.count { it.state == ConnectionState.Connected })
         assertEquals("rotated", h.store.token)
+    }
+
+    @Test fun connectedStatusObservesPersistedRefreshedToken() = runTest {
+        val h = harness()
+        h.session.connect(living)
+        h.last.connectEvent(token = "refreshed")
+        runCurrent()
+        assertEquals(ConnectionState.Connected, h.state)
+        assertEquals(listOf("refreshed"), h.tokensAtConnected)
     }
 
     @Test fun refusedSendIsDiscardedAndStartsRecoveryWithoutResending() = runTest {

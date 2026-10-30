@@ -10,11 +10,13 @@ import com.dirtyredz.householdremote.remote.SessionTiming
 import com.dirtyredz.householdremote.security.Credential
 import com.dirtyredz.householdremote.security.Credentials
 import com.dirtyredz.householdremote.security.TvTrust
+import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
@@ -94,7 +96,8 @@ class SessionTest {
                 }).build()
             )
             server.start()
-            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+            val scope = CoroutineScope(SupervisorJob() + dispatcher)
             val store = Memory()
             val events = LinkedBlockingQueue<String>()
             val states = LinkedBlockingQueue<ConnectionState>()
@@ -102,6 +105,7 @@ class SessionTest {
                 states.add(status.state)
                 events.add(status.message)
             }, {})
+            fun <T> onSession(block: () -> T) = runBlocking(dispatcher) { block() }
             fun awaitStatus(expected: String) {
                 val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
                 while (System.nanoTime() <
@@ -116,23 +120,23 @@ class SessionTest {
                 fail("Missing status: $expected")
             }
             try {
-                session.connect(tv, true, server.port)
+                onSession { session.connect(tv, true, server.port) }
                 awaitStatus("Connected")
                 assertEquals("first", store.value!!.token)
-                assertTrue(session.send(SamsungProtocol.key("KEY_HOME")))
+                assertTrue(onSession { session.send(SamsungProtocol.key("KEY_HOME")) })
                 assertEquals(SamsungProtocol.key("KEY_HOME"), received.poll(3, TimeUnit.SECONDS))
-                session.disconnect()
-                assertFalse(session.send(SamsungProtocol.key("KEY_UP")))
-                session.connect(tv, false, server.port)
+                onSession { session.disconnect() }
+                assertFalse(onSession { session.send(SamsungProtocol.key("KEY_UP")) })
+                onSession { session.connect(tv, false, server.port) }
                 awaitStatus("Connected")
                 assertEquals("refreshed", store.value!!.token)
                 assertNull(received.poll(100, TimeUnit.MILLISECONDS))
                 server.takeRequest()
                 assertEquals("first", server.takeRequest().url.queryParameter("token"))
-                session.connect(tv, false, server.port)
+                onSession { session.connect(tv, false, server.port) }
                 awaitStatus("Denied")
-                assertFalse(session.send(SamsungProtocol.key("KEY_HOME")))
-                session.disconnect()
+                assertFalse(onSession { session.send(SamsungProtocol.key("KEY_HOME")) })
+                onSession { session.disconnect() }
                 assertEquals(
                     "Typed transitions; a repeated connect event on a live socket is not " +
                         "re-reported; explicit disconnect reports Offline once",
@@ -148,8 +152,9 @@ class SessionTest {
                     states.toList()
                 )
             } finally {
-                session.disconnect()
+                onSession { session.disconnect() }
                 scope.cancel()
+                dispatcher.close()
             }
         }
     }
