@@ -110,7 +110,7 @@ class TextInputTest {
         assertTrue(dispatcher.text("ab"))
         assertTrue(dispatcher.text("abc"))
         assertTrue(dispatcher.endText())
-        assertFalse(dispatcher.beginText())
+        assertFalse(dispatcher.text("blocked by end"))
         runCurrent()
         assertEquals(
             List(16) { SamsungProtocol.key("KEY_UP") } +
@@ -124,11 +124,9 @@ class TextInputTest {
         val sent = mutableListOf<String>()
         val dispatcher = KeyDispatcher(backgroundScope, { sent.add(it) }, {})
         dispatcher.start()
-        dispatcher.beginText()
         dispatcher.endText()
         runCurrent()
         assertEquals(listOf(SamsungProtocol.inputEnd()), sent)
-        dispatcher.beginText()
         dispatcher.text("stale")
         dispatcher.endText()
         dispatcher.cancel()

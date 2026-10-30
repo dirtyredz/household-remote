@@ -76,7 +76,24 @@ class RemoteViewModel(
     private var foreground = false
 
     private fun updateState(transform: (RemoteState) -> RemoteState) {
-        mutable.value = transform(mutable.value).clearUnavailableKeyboardIntent()
+        val next = transform(mutable.value)
+        if (next.keyboardOpen && !next.inputEnabled) {
+            clearKeyboardIntent(next)
+        } else {
+            mutable.value = next
+        }
+    }
+
+    /** The one invalidation path for keyboard intent and its still-unsent dispatcher work. */
+    private fun clearKeyboardIntent(next: RemoteState = mutable.value, endText: Boolean = false) {
+        val finish: () -> Unit = {
+            if (endText && foreground && next.keyboardVisible) {
+                dispatcher.endText()
+            } else {
+                dispatcher.discardText()
+            }
+        }
+        mutable.value = next.discardKeyboardIntent(finish)
     }
 
     init {
@@ -144,21 +161,17 @@ class RemoteViewModel(
     val tvMessages get() = session.messages.entries
 
     fun openKeyboard() {
-        if (foreground &&
-            state.value.inputEnabled && dispatcher.beginText()
-        ) {
+        if (foreground && state.value.inputEnabled) {
             updateState { it.copy(keyboardOpen = true) }
         }
     }
 
     fun closeKeyboard() {
-        if (foreground && state.value.keyboardVisible) dispatcher.endText()
-        updateState { it.copy(keyboardOpen = false) }
+        clearKeyboardIntent(endText = true)
     }
 
     private fun dismissKeyboard() {
-        dispatcher.discardText()
-        updateState { it.copy(keyboardOpen = false) }
+        clearKeyboardIntent()
     }
 
     fun sendText(text: String) {
@@ -182,6 +195,7 @@ class RemoteViewModel(
 
     fun stop() {
         foreground = false
+        clearKeyboardIntent()
         wifi.stop()
         operation?.cancel()
         apps.reset()
@@ -206,6 +220,7 @@ class RemoteViewModel(
     }
 
     private fun disconnectForSelection() {
+        clearKeyboardIntent()
         power.reset()
         dispatcher.discardPending()
         session.disconnect()
@@ -221,6 +236,7 @@ class RemoteViewModel(
 
     fun connect(pair: Boolean) {
         operation?.cancel()
+        clearKeyboardIntent()
         power.reset()
         dispatcher.discardPending()
         if (foreground) state.value.selected?.let { session.connect(it, pair) }
@@ -290,6 +306,7 @@ class RemoteViewModel(
     }
 
     override fun onCleared() {
+        clearKeyboardIntent()
         wifi.stop()
         apps.reset()
         power.reset()
