@@ -6,18 +6,13 @@ import com.dirtyredz.householdremote.remote.ConnectionFailure
 import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.remote.SamsungProtocol
+import com.dirtyredz.householdremote.remote.SerialSessionScope
 import com.dirtyredz.householdremote.remote.SessionTiming
 import com.dirtyredz.householdremote.security.Credential
 import com.dirtyredz.householdremote.security.Credentials
 import com.dirtyredz.householdremote.security.TvTrust
-import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -96,65 +91,65 @@ class SessionTest {
                 }).build()
             )
             server.start()
-            val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-            val scope = CoroutineScope(SupervisorJob() + dispatcher)
-            val store = Memory()
-            val events = LinkedBlockingQueue<String>()
-            val states = LinkedBlockingQueue<ConnectionState>()
-            val session = RemoteSession(scope, store, { status ->
-                states.add(status.state)
-                events.add(status.message)
-            }, {})
-            fun <T> onSession(block: () -> T) = runBlocking(dispatcher) { block() }
-            fun awaitStatus(expected: String) {
-                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-                while (System.nanoTime() <
-                    deadline
-                ) {
-                    if (events.poll(100, TimeUnit.MILLISECONDS)?.contains(expected) ==
-                        true
+            SerialSessionScope().use { serial ->
+                val store = Memory()
+                val events = LinkedBlockingQueue<String>()
+                val states = LinkedBlockingQueue<ConnectionState>()
+                val session = RemoteSession(serial.scope, store, { status ->
+                    states.add(status.state)
+                    events.add(status.message)
+                }, {})
+                fun awaitStatus(expected: String) {
+                    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+                    while (System.nanoTime() <
+                        deadline
                     ) {
-                        return
+                        if (events.poll(100, TimeUnit.MILLISECONDS)?.contains(expected) ==
+                            true
+                        ) {
+                            return
+                        }
                     }
+                    fail("Missing status: $expected")
                 }
-                fail("Missing status: $expected")
-            }
-            try {
-                onSession { session.connect(tv, true, server.port) }
-                awaitStatus("Connected")
-                assertEquals("first", store.value!!.token)
-                assertTrue(onSession { session.send(SamsungProtocol.key("KEY_HOME")) })
-                assertEquals(SamsungProtocol.key("KEY_HOME"), received.poll(3, TimeUnit.SECONDS))
-                onSession { session.disconnect() }
-                assertFalse(onSession { session.send(SamsungProtocol.key("KEY_UP")) })
-                onSession { session.connect(tv, false, server.port) }
-                awaitStatus("Connected")
-                assertEquals("refreshed", store.value!!.token)
-                assertNull(received.poll(100, TimeUnit.MILLISECONDS))
-                server.takeRequest()
-                assertEquals("first", server.takeRequest().url.queryParameter("token"))
-                onSession { session.connect(tv, false, server.port) }
-                awaitStatus("Denied")
-                assertFalse(onSession { session.send(SamsungProtocol.key("KEY_HOME")) })
-                onSession { session.disconnect() }
-                assertEquals(
-                    "Typed transitions; a repeated connect event on a live socket is not " +
-                        "re-reported; explicit disconnect reports Offline once",
-                    listOf(
-                        ConnectionState.AwaitingApproval,
-                        ConnectionState.Connected,
-                        ConnectionState.Offline,
-                        ConnectionState.Connecting,
-                        ConnectionState.Connected,
-                        ConnectionState.Connecting,
-                        ConnectionState.Offline
-                    ),
-                    states.toList()
-                )
-            } finally {
-                onSession { session.disconnect() }
-                scope.cancel()
-                dispatcher.close()
+                try {
+                    serial.onSession { session.connect(tv, true, server.port) }
+                    awaitStatus("Connected")
+                    assertEquals("first", store.value!!.token)
+                    assertTrue(serial.onSession { session.send(SamsungProtocol.key("KEY_HOME")) })
+                    assertEquals(
+                        SamsungProtocol.key("KEY_HOME"),
+                        received.poll(3, TimeUnit.SECONDS)
+                    )
+                    serial.onSession { session.disconnect() }
+                    assertFalse(serial.onSession { session.send(SamsungProtocol.key("KEY_UP")) })
+                    serial.onSession { session.connect(tv, false, server.port) }
+                    awaitStatus("Connected")
+                    assertEquals("refreshed", store.value!!.token)
+                    assertNull(received.poll(100, TimeUnit.MILLISECONDS))
+                    server.takeRequest()
+                    assertEquals("first", server.takeRequest().url.queryParameter("token"))
+                    serial.onSession { session.connect(tv, false, server.port) }
+                    awaitStatus("Denied")
+                    assertFalse(serial.onSession { session.send(SamsungProtocol.key("KEY_HOME")) })
+                    serial.onSession { session.disconnect() }
+                    assertEquals(
+                        "Typed transitions; a repeated connect event on a live socket is not " +
+                            "re-reported; explicit disconnect reports Offline once",
+                        listOf(
+                            ConnectionState.AwaitingApproval,
+                            ConnectionState.Connected,
+                            ConnectionState.Offline,
+                            ConnectionState.Connecting,
+                            ConnectionState.Connected,
+                            ConnectionState.Connecting,
+                            ConnectionState.Offline
+                        ),
+                        states.toList()
+                    )
+                } finally {
+                    serial.onSession { session.disconnect() }
+                }
             }
         }
     }
@@ -186,30 +181,30 @@ class SessionTest {
                 MockResponse.Builder().webSocketUpgrade(object : WebSocketListener() {}).build()
             )
             server.start()
-            val store = Memory().apply { value = Credential("old-token", observed) }
-            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-            val failed = LinkedBlockingQueue<ConnectionFailure>()
-            val states = LinkedBlockingQueue<ConnectionState>()
-            val session =
-                RemoteSession(scope, store, { status ->
-                    states.add(status.state)
-                    status.failure?.let(failed::add)
-                }, {}, SessionTiming(backoffMs = listOf(50)))
-            try {
-                session.connect(tv, false, server.port)
-                assertEquals(ConnectionFailure.TrustChanged, failed.poll(5, TimeUnit.SECONDS))
-                Thread.sleep(500)
-                assertEquals(
-                    "a changed pin is terminal: never retried, never re-paired",
-                    listOf(ConnectionState.Connecting, ConnectionState.Offline),
-                    states.toList()
-                )
-                assertEquals(observed, store.value!!.certificate)
-                assertEquals("old-token", store.value!!.token)
-                assertFalse(session.send(SamsungProtocol.key("KEY_HOME")))
-            } finally {
-                session.disconnect()
-                scope.cancel()
+            SerialSessionScope().use { serial ->
+                val store = Memory().apply { value = Credential("old-token", observed) }
+                val failed = LinkedBlockingQueue<ConnectionFailure>()
+                val states = LinkedBlockingQueue<ConnectionState>()
+                val session =
+                    RemoteSession(serial.scope, store, { status ->
+                        states.add(status.state)
+                        status.failure?.let(failed::add)
+                    }, {}, SessionTiming(backoffMs = listOf(50)))
+                try {
+                    serial.onSession { session.connect(tv, false, server.port) }
+                    assertEquals(ConnectionFailure.TrustChanged, failed.poll(5, TimeUnit.SECONDS))
+                    Thread.sleep(500)
+                    assertEquals(
+                        "a changed pin is terminal: never retried, never re-paired",
+                        listOf(ConnectionState.Connecting, ConnectionState.Offline),
+                        states.toList()
+                    )
+                    assertEquals(observed, store.value!!.certificate)
+                    assertEquals("old-token", store.value!!.token)
+                    assertFalse(serial.onSession { session.send(SamsungProtocol.key("KEY_HOME")) })
+                } finally {
+                    serial.onSession { session.disconnect() }
+                }
             }
         }
     }
@@ -226,34 +221,34 @@ class SessionTest {
                 MockResponse.Builder().webSocketUpgrade(object : WebSocketListener() {}).build()
             )
             server.start()
-            val store = Memory()
-            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-            val timedOut = LinkedBlockingQueue<String>()
-            val states = LinkedBlockingQueue<ConnectionState>()
-            var cancelled = 0
-            val session =
-                RemoteSession(scope, store, { status ->
-                    states.add(status.state)
-                    if (status.message.startsWith(
-                            "Approval timed out"
-                        )
-                    ) {
-                        timedOut.add(status.message)
-                    }
-                }, { cancelled++ }, SessionTiming(approvalMs = 300))
-            try {
-                session.connect(tv, true, server.port)
-                assertNotNull(timedOut.poll(5, TimeUnit.SECONDS))
-                assertEquals(
-                    listOf(ConnectionState.AwaitingApproval, ConnectionState.Offline),
-                    states.toList()
-                )
-                assertNull(store.value)
-                assertTrue(cancelled >= 2)
-                assertFalse(session.send(SamsungProtocol.key("KEY_POWER")))
-            } finally {
-                session.disconnect()
-                scope.cancel()
+            SerialSessionScope().use { serial ->
+                val store = Memory()
+                val timedOut = LinkedBlockingQueue<String>()
+                val states = LinkedBlockingQueue<ConnectionState>()
+                var cancelled = 0
+                val session =
+                    RemoteSession(serial.scope, store, { status ->
+                        states.add(status.state)
+                        if (status.message.startsWith(
+                                "Approval timed out"
+                            )
+                        ) {
+                            timedOut.add(status.message)
+                        }
+                    }, { cancelled++ }, SessionTiming(approvalMs = 300))
+                try {
+                    serial.onSession { session.connect(tv, true, server.port) }
+                    assertNotNull(timedOut.poll(5, TimeUnit.SECONDS))
+                    assertEquals(
+                        listOf(ConnectionState.AwaitingApproval, ConnectionState.Offline),
+                        states.toList()
+                    )
+                    assertNull(store.value)
+                    assertTrue(cancelled >= 2)
+                    assertFalse(serial.onSession { session.send(SamsungProtocol.key("KEY_POWER")) })
+                } finally {
+                    serial.onSession { session.disconnect() }
+                }
             }
         }
     }

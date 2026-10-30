@@ -4,14 +4,8 @@ import com.dirtyredz.householdremote.inventory.Tv
 import com.dirtyredz.householdremote.security.Credential
 import com.dirtyredz.householdremote.security.Credentials
 import com.dirtyredz.householdremote.security.TvTrust
-import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.Response
@@ -56,21 +50,20 @@ class ConnectionRecoveryTest {
             value = Credential("saved-token", trust.observed!!)
         }
         val saved = store.value
-        private val executor = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-        private val scope = CoroutineScope(SupervisorJob() + executor)
+        private val serial = SerialSessionScope()
         val states = LinkedBlockingQueue<ConnectionState>()
         val peers = LinkedBlockingQueue<WebSocket>()
         val keys = LinkedBlockingQueue<String>()
         val server = MockWebServer()
         lateinit var dispatcher: KeyDispatcher
-        val session = RemoteSession(scope, store, { status ->
+        val session = RemoteSession(serial.scope, store, { status ->
             if (status.ready) dispatcher.start()
             states.add(status.state)
         }, { dispatcher.cancel() }, timing)
         val proxy: FaultProxy?
 
         init {
-            dispatcher = KeyDispatcher(scope, session::send, {})
+            dispatcher = KeyDispatcher(serial.scope, session::send, {})
             server.useHttps(
                 HandshakeCertificates.Builder().heldCertificate(
                     certificate
@@ -96,7 +89,7 @@ class ConnectionRecoveryTest {
             }
         ).build()
 
-        fun <T> onSession(block: () -> T): T = runBlocking(executor) { block() }
+        fun <T> onSession(block: () -> T): T = serial.onSession(block)
 
         fun connect() {
             onSession { session.connect(tv, false, proxy?.port ?: server.port) }
@@ -113,11 +106,14 @@ class ConnectionRecoveryTest {
         }
 
         override fun close() {
-            onSession { session.disconnect() }
-            scope.cancel()
-            executor.close()
-            proxy?.close()
-            server.close()
+            serial.use {
+                try {
+                    onSession { session.disconnect() }
+                } finally {
+                    proxy?.close()
+                    server.close()
+                }
+            }
         }
     }
 
