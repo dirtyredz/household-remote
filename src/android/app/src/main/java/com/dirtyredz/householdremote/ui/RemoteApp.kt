@@ -22,8 +22,8 @@ import com.dirtyredz.householdremote.ui.settings.RemoteSettingsSheet
 import com.dirtyredz.householdremote.ui.settings.SettingsDialog
 import com.dirtyredz.householdremote.ui.setup.ImportManifestDialog
 import com.dirtyredz.householdremote.ui.setup.PairingDialog
-import com.dirtyredz.householdremote.ui.setup.TvKeyboardDialog
 import com.dirtyredz.householdremote.ui.setup.TvManagementSheet
+import com.dirtyredz.householdremote.ui.typing.LiveTyping
 
 private enum class Overlay { Tvs, Actions, Settings, Import, Pairing }
 
@@ -70,7 +70,7 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
         )
     )
     if (state.keyboardVisible) {
-        TvKeyboardDialog(onDone = model::sendText, onDismiss = model::dismissKeyboard)
+        LiveTyping(onTextChanged = model::sendText, onClose = model::closeKeyboard)
     }
     val tv = state.selected
     when (overlay) {
@@ -101,7 +101,7 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             onDismiss = ::close
         )
 
-        Overlay.Settings -> SettingsDialog(onDismiss = ::close)
+        Overlay.Settings -> SettingsDialog(messages = model.tvMessages, onDismiss = ::close)
 
         Overlay.Import -> ImportManifestDialog(
             onImport = {

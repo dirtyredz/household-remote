@@ -46,7 +46,4 @@
     <!-- App buttons -->
     <string name="app_not_installed">not installed on this TV</string>
     <string name="tv_keyboard">Keyboard</string>
-    <string name="tv_keyboard_text">Text for TV</string>
-    <string name="tv_keyboard_done">Done</string>
-    <string name="tv_keyboard_cancel">Cancel</string>
 </resources>

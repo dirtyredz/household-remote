@@ -8,7 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Serialized input for one usable session: key taps, app launches and text/Enter batches share one queue of
+ * Serialized input for one usable session: key taps, app launches and live text snapshots share one queue of
  * ready-to-send frames. Frames accepted by the socket are never resent; while the session
  * recovers, at most one fresh, never-submitted ordinary key may [hold] for [pendingMs] and is
  * submitted once when the next session [start]s. App launches and text are never held.
@@ -19,7 +19,12 @@ class KeyDispatcher(
     private val dropped: () -> Unit,
     private val pendingMs: Long = PENDING_KEY_MS
 ) {
-    private var channel: Channel<List<String>>? = null
+    private class Entry(var frame: String, val keyboard: Boolean = false)
+    private var channel: Channel<Unit>? = null
+    private val entries = ArrayDeque<Entry>()
+    private var live: Entry? = null
+    private var typing = false
+    private var ending = false
     private var worker: Job? = null
     private var pending: String? = null
     private var pendingExpiry: Job? = null
@@ -31,42 +36,81 @@ class KeyDispatcher(
         startQueue()
         val held = pending ?: return
         discardPending()
-        channel?.trySend(listOf(SamsungProtocol.key(held)))
+        tap(held)
     }
     private fun startQueue() {
-        val queue = Channel<List<String>>(16)
+        val queue = Channel<Unit>(Channel.CONFLATED)
         channel = queue
         worker =
             scope.launch {
-                for (frames in queue) {
-                    if (!frames.all(send)) {
-                        dropped()
-                        cancel()
-                        break
+                for (signal in queue) {
+                    while (entries.isNotEmpty()) {
+                        val entry = entries.removeFirst()
+                        if (entry === live) live = null
+                        if (entry.frame == SamsungProtocol.inputEnd()) ending = false
+                        if (!send(entry.frame)) {
+                            dropped()
+                            cancel()
+                            break
+                        }
                     }
                 }
             }
     }
-    fun tap(key: String): Boolean {
+    private fun enqueue(frame: String): Boolean {
         val queue = channel ?: return false
-        return queue.trySend(listOf(SamsungProtocol.key(key))).isSuccess
+        if (entries.count { !it.keyboard } >= 16) return false
+        entries.addLast(Entry(frame))
+        queue.trySend(Unit)
+        return true
     }
+    fun tap(key: String): Boolean = enqueue(SamsungProtocol.key(key))
 
     /**
      * Queues one launch of [app] on the live session. Without one it is refused, not held:
      * opening an app later, after the moment has passed, would surprise whoever pressed it.
      */
-    fun launch(app: TvApp): Boolean {
-        val queue = channel ?: return false
-        return queue.trySend(listOf(SamsungProtocol.launch(app.appId, app.launchType))).isSuccess
+    fun launch(app: TvApp): Boolean = enqueue(SamsungProtocol.launch(app.appId, app.launchType))
+
+    fun beginText(): Boolean {
+        if (channel == null || ending) return false
+        typing = true
+        return true
     }
 
-    /** One entry: text then Enter, without interleaving or holding through recovery. */
+    /** Replace only the still-unsent snapshot, without a timer. */
     fun text(text: String): Boolean {
         val queue = channel ?: return false
-        return queue.trySend(
-            listOf(SamsungProtocol.text(text), SamsungProtocol.key("KEY_ENTER"))
-        ).isSuccess
+        if (!typing && !beginText()) return false
+        val frame = SamsungProtocol.text(text)
+        val previous = live
+        if (previous != null) {
+            previous.frame = frame
+        } else {
+            live = Entry(frame, keyboard = true).also(entries::addLast)
+        }
+        queue.trySend(Unit)
+        return true
+    }
+
+    /** Reserved completion barrier, including for an untouched field. */
+    fun endText(): Boolean {
+        val queue = channel ?: return false
+        if (!typing) return false
+        typing = false
+        ending = true
+        live = null
+        entries.addLast(Entry(SamsungProtocol.inputEnd(), keyboard = true))
+        queue.trySend(Unit)
+        return true
+    }
+
+    /** TV-ended input drops unsent keyboard work but preserves ordinary controls. */
+    fun discardText() {
+        entries.removeAll { it.keyboard }
+        live = null
+        typing = false
+        ending = false
     }
 
     /**
@@ -106,6 +150,10 @@ class KeyDispatcher(
 
     /** Cancels the queue. A held key survives: it belongs to recovery. */
     fun cancel() {
+        entries.clear()
+        live = null
+        typing = false
+        ending = false
         channel?.cancel()
         channel = null
         worker?.cancel()

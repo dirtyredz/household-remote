@@ -36,6 +36,8 @@ class RemoteSession(
     private var attempt = 0
     private var socket: TransportSocket? = null
     private var pairing = false
+    val messages = TvMessageLog()
+    private var pendingImeStart = false
     private var ready = false
     private var recover = true
     private var failures = 0
@@ -109,6 +111,7 @@ class RemoteSession(
     fun send(message: String): Boolean {
         val open = socket
         if (!ready || open == null) return false
+        messages.outgoing(message)
         if (open.send(message)) return true
         ready = false
         val id = attempt
@@ -130,6 +133,7 @@ class RemoteSession(
     private fun open(pairingAttempt: Boolean) {
         val tv = target?.tv ?: return
         val port = target?.port ?: return
+        messages.reset(listOf(tv.name, tv.mac, tv.ip))
         val id = ++attempt
         pairing = pairingAttempt
         // Credentials are re-read on every attempt, so a refreshed token is always used.
@@ -179,8 +183,20 @@ class RemoteSession(
     }
 
     private fun received(id: Int, tv: Tv, text: String) {
+        messages.incoming(text)
         try {
             val (event, refreshed) = SamsungProtocol.event(text)
+            if (event?.startsWith("ms.remote.ime") == true) {
+                when (event) {
+                    "ms.remote.imeStart" -> if (ready) imeChanged(true) else pendingImeStart = true
+
+                    "ms.remote.imeEnd" -> {
+                        pendingImeStart = false
+                        imeChanged(false)
+                    }
+                }
+                return
+            }
             when (event) {
                 "ms.channel.connect" -> {
                     val pin = socket?.observedPin ?: error("Missing certificate")
@@ -189,10 +205,6 @@ class RemoteSession(
                     // A repeated connect event on a live socket only refreshes the token.
                     if (!ready) established()
                 }
-
-                "ms.remote.imeStart" -> if (ready) imeChanged(true)
-
-                "ms.remote.imeEnd" -> imeChanged(false)
 
                 "ms.channel.unauthorized" -> dropped(id, ConnectionFailure.Denied)
             }
@@ -212,6 +224,10 @@ class RemoteSession(
             failures = 0
         }
         emit(ConnectionState.Connected, "Connected")
+        if (pendingImeStart) {
+            pendingImeStart = false
+            imeChanged(true)
+        }
     }
 
     private fun dropped(id: Int, failure: ConnectionFailure) {
@@ -298,6 +314,7 @@ class RemoteSession(
     }
 
     private fun teardownAttempt() {
+        pendingImeStart = false
         imeChanged(false)
         attempt++
         ready = false

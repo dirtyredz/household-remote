@@ -1,8 +1,12 @@
 package com.dirtyredz.householdremote.remote
 
+import java.util.Base64
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -10,7 +14,32 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TextInputTest {
+    @Test fun unicodePasteLongInputAndCursorReplacementPreserveWholeUtf8Value() = runTest {
+        val sent = mutableListOf<String>()
+        val dispatcher = KeyDispatcher(backgroundScope, { sent.add(it) }, {})
+        val values = listOf("a", "abcdef", "abXYef", "é 📺", "long".repeat(1024), "")
+        dispatcher.start()
+        for (value in values) {
+            dispatcher.text(value)
+            runCurrent()
+        }
+        assertEquals(
+            values,
+            sent.map {
+                val params = Json.parseToJsonElement(it).jsonObject.getValue("params").jsonObject
+                val encoded = params.getValue("Cmd").jsonPrimitive.content
+                assertFalse(encoded.contains('\n'))
+                String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+            }
+        )
+        dispatcher.cancel()
+    }
+
     @Test fun exactUtf8PayloadAndEmptyText() {
+        assertEquals(
+            """{"method":"ms.remote.control","params":{"TypeOfRemote":"SendInputEnd"}}""",
+            SamsungProtocol.inputEnd()
+        )
         assertEquals(
             """{"method":"ms.remote.control","params":{"Cmd":"SGVsbG8gw6kg8J+Tug==","DataOfCmd":"base64","TypeOfRemote":"SendInputString"}}""",
             SamsungProtocol.text("Hello \u00e9 \uD83D\uDCFA")
@@ -21,19 +50,20 @@ class TextInputTest {
         )
     }
 
-    @Test fun doneSendsTextThenEnterWithoutInterleaving() = runTest {
+    @Test fun liveChangesDeleteAndCloseNeverPressEnter() = runTest {
         val sent = mutableListOf<String>()
         val dispatcher = KeyDispatcher(backgroundScope, { sent.add(it) }, {})
         dispatcher.start()
-        assertTrue(dispatcher.text("hello"))
-        dispatcher.tap("KEY_HOME")
+        for (value in listOf("a", "ab", "abc", "ab", "")) {
+            assertTrue(dispatcher.text(value))
+            runCurrent()
+        }
+        assertTrue(dispatcher.endText())
+        assertFalse(dispatcher.endText())
         runCurrent()
         assertEquals(
-            listOf(
-                SamsungProtocol.text("hello"),
-                SamsungProtocol.key("KEY_ENTER"),
-                SamsungProtocol.key("KEY_HOME")
-            ),
+            listOf("a", "ab", "abc", "ab", "").map(SamsungProtocol::text) +
+                SamsungProtocol.inputEnd(),
             sent
         )
         dispatcher.cancel()
@@ -62,6 +92,7 @@ class TextInputTest {
         }, {})
         dispatcher.start()
         dispatcher.text("lost")
+        dispatcher.endText()
         runCurrent()
         assertEquals(listOf(SamsungProtocol.text("lost")), attempted)
         dispatcher.start()
@@ -70,14 +101,44 @@ class TextInputTest {
         dispatcher.cancel()
     }
 
-    @Test fun fullQueueRejectsBothTextAndEnter() = runTest {
+    @Test fun backpressureCoalescesOneSnapshotAndReservesCompletion() = runTest {
         val sent = mutableListOf<String>()
         val dispatcher = KeyDispatcher(backgroundScope, { sent.add(it) }, {})
         dispatcher.start()
         repeat(16) { assertTrue(dispatcher.tap("KEY_UP")) }
-        assertFalse(dispatcher.text("full"))
+        assertTrue(dispatcher.text("a"))
+        assertTrue(dispatcher.text("ab"))
+        assertTrue(dispatcher.text("abc"))
+        assertTrue(dispatcher.endText())
+        assertFalse(dispatcher.beginText())
         runCurrent()
-        assertEquals(List(16) { SamsungProtocol.key("KEY_UP") }, sent)
+        assertEquals(
+            List(16) { SamsungProtocol.key("KEY_UP") } +
+                listOf(SamsungProtocol.text("abc"), SamsungProtocol.inputEnd()),
+            sent
+        )
         dispatcher.cancel()
+    }
+
+    @Test fun untouchedCloseAndInvalidation() = runTest {
+        val sent = mutableListOf<String>()
+        val dispatcher = KeyDispatcher(backgroundScope, { sent.add(it) }, {})
+        dispatcher.start()
+        dispatcher.beginText()
+        dispatcher.endText()
+        runCurrent()
+        assertEquals(listOf(SamsungProtocol.inputEnd()), sent)
+        dispatcher.beginText()
+        dispatcher.text("stale")
+        dispatcher.endText()
+        dispatcher.cancel()
+        dispatcher.start()
+        runCurrent()
+        assertEquals(1, sent.size)
+        dispatcher.text("standby")
+        dispatcher.standby()
+        runCurrent()
+        assertEquals(SamsungProtocol.key("KEY_POWER"), sent.last())
+        assertEquals(2, sent.size)
     }
 }

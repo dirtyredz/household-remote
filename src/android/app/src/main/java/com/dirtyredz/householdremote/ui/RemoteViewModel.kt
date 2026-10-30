@@ -141,15 +141,23 @@ class RemoteViewModel(
         )
     }
 
+    val tvMessages get() = session.messages.entries
+
     fun openKeyboard() {
         if (foreground &&
-            state.value.inputEnabled
+            state.value.inputEnabled && dispatcher.beginText()
         ) {
             updateState { it.copy(keyboardOpen = true) }
         }
     }
 
-    fun dismissKeyboard() {
+    fun closeKeyboard() {
+        if (foreground && state.value.keyboardVisible) dispatcher.endText()
+        updateState { it.copy(keyboardOpen = false) }
+    }
+
+    private fun dismissKeyboard() {
+        dispatcher.discardText()
         updateState { it.copy(keyboardOpen = false) }
     }
 
@@ -157,7 +165,6 @@ class RemoteViewModel(
         if (foreground && state.value.keyboardVisible) {
             dispatcher.text(text)
         }
-        dismissKeyboard()
     }
 
     fun start() {

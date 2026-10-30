@@ -46,7 +46,7 @@ object SamsungProtocol {
         }.toString()
     }
 
-    /** Whole UTF-8 text, submitted once on Done; no live-edit semantics assumed. */
+    /** Whole UTF-8 snapshot; replacement behavior needs attended TV acceptance. */
     fun text(text: String): String = buildJsonObject {
         put("method", "ms.remote.control")
         put(
@@ -57,6 +57,12 @@ object SamsungProtocol {
                 put("TypeOfRemote", "SendInputString")
             }
         )
+    }.toString()
+
+    /** Remembered minimal completion shape; real-TV support remains unverified. */
+    fun inputEnd(): String = buildJsonObject {
+        put("method", "ms.remote.control")
+        put("params", buildJsonObject { put("TypeOfRemote", "SendInputEnd") })
     }.toString()
 
     /**

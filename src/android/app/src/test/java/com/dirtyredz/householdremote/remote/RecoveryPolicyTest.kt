@@ -64,6 +64,7 @@ class RecoveryPolicyTest {
         val openedAt = mutableListOf<Long>()
         val statuses = mutableListOf<ConnectionStatus>()
         var ime = false
+        var imeStarts = 0
         var cancels = 0
         var now: () -> Long = { 0 }
         val session = RemoteSession(
@@ -72,7 +73,10 @@ class RecoveryPolicyTest {
             { statuses += it },
             { cancels++ },
             timing,
-            imeChanged = { ime = it }
+            imeChanged = {
+                ime = it
+                if (it) imeStarts++
+            }
         ) { url, _, _, events ->
             FakeSocket(url, events).also {
                 sockets += it
@@ -103,6 +107,11 @@ class RecoveryPolicyTest {
         assertFalse(h.ime)
         h.last.connectEvent()
         runCurrent()
+        assertTrue("early start opens once ready", h.ime)
+        assertEquals(1, h.imeStarts)
+        h.last.connectEvent()
+        runCurrent()
+        assertEquals(1, h.imeStarts)
         h.last.events.message("""{"event":"ms.remote.imeStart","data":{}}""")
         runCurrent()
         assertTrue(h.ime)
@@ -117,6 +126,30 @@ class RecoveryPolicyTest {
         runCurrent()
         assertFalse(h.ime)
         old.events.message("""{"event":"ms.remote.imeStart"}""")
+        runCurrent()
+        assertFalse(h.ime)
+        h.session.disconnect()
+    }
+
+    @Test fun allMessagesAreLoggedButUnknownImeDoesNotOpenAndEarlyEndCancelsStart() = runTest {
+        val h = harness()
+        h.session.connect(living)
+        h.last.events.message("""{"event":"ms.remote.imeStart"}""")
+        h.last.events.message("""{"event":"ms.remote.imeEnd"}""")
+        h.last.events.message("""{"event":"ms.remote.imeUpdate","data":"unknown"}""")
+        h.last.events.message("""{"event":"unrelated","data":{"token":"secret"}}""")
+        h.last.connectEvent()
+        runCurrent()
+        assertFalse(h.ime)
+        assertEquals(5, h.session.messages.entries.value.size)
+        assertTrue(h.session.messages.entries.value.any { it.contains("unrelated") })
+        assertFalse(h.session.messages.entries.value.any { it.contains("secret") })
+        val old = h.last
+        h.session.connect(bedroom)
+        old.events.message("""{"event":"ms.remote.imeStart"}""")
+        runCurrent()
+        assertTrue(h.session.messages.entries.value.isEmpty())
+        h.last.connectEvent()
         runCurrent()
         assertFalse(h.ime)
         h.session.disconnect()

@@ -17,21 +17,31 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dirtyredz.householdremote.BuildConfig
+import kotlinx.coroutines.flow.StateFlow
 
 /** Full-screen settings surface, separate from the remote's quick actions. */
 @Composable
-fun SettingsDialog(onDismiss: () -> Unit) {
+fun SettingsDialog(messages: StateFlow<List<String>>, onDismiss: () -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        SettingsScreen(onBack = onDismiss)
+        var showMessages by remember { mutableStateOf(false) }
+        if (showMessages) {
+            TvMessagesScreen(messages, onBack = { showMessages = false })
+        } else {
+            SettingsScreen(onBack = onDismiss, onMessages = { showMessages = true })
+        }
     }
 }
 
@@ -39,6 +49,7 @@ fun SettingsDialog(onDismiss: () -> Unit) {
 @Composable
 internal fun SettingsScreen(
     onBack: () -> Unit,
+    onMessages: () -> Unit = {},
     updateContent: @Composable () -> Unit = { UpdateControl() }
 ) {
     BackHandler(onBack = onBack)
@@ -63,6 +74,7 @@ internal fun SettingsScreen(
                     .padding(horizontal = 16.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                TextButton(onClick = onMessages) { Text("TV messages") }
                 Text("App updates", style = MaterialTheme.typography.titleLarge)
                 HorizontalDivider(Modifier.fillMaxWidth())
                 Text("Current version ${BuildConfig.VERSION_NAME}")
