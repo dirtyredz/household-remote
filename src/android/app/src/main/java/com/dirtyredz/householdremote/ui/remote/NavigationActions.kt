@@ -14,7 +14,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
-import com.dirtyredz.householdremote.ui.remote.keyboard.KeyboardButton
 
 private data class NavigationKey(val key: String, val icon: Int, val label: Int)
 
@@ -29,9 +28,9 @@ private val navigationKeys = listOf(
 fun NavigationActions(
     enabled: Boolean,
     onKey: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    keyboardEnabled: Boolean = false,
-    onKeyboard: () -> Unit = {}
+    keyboardEnabled: Boolean,
+    onKeyboard: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         KeyboardButton(
@@ -57,5 +56,13 @@ fun NavigationActions(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun KeyboardButton(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.tv_keyboard)
+    RemoteButton(label, onClick, modifier, enabled, tag = "keyboard") {
+        FitText(label, MaterialTheme.typography.labelMedium)
     }
 }

@@ -14,16 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -32,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import com.dirtyredz.householdremote.R
 import com.dirtyredz.householdremote.apps.TvApp
 import com.dirtyredz.householdremote.ui.RemoteState
-import com.dirtyredz.householdremote.ui.theme.remoteBackgroundBrush
+import com.dirtyredz.householdremote.ui.theme.rememberRemoteGlowState
+import com.dirtyredz.householdremote.ui.theme.remoteGlow
+import com.dirtyredz.householdremote.ui.theme.remoteGlowAnchor
 
 /** Everything the remote surface can ask for; the route wires these to the ViewModel. */
 class RemoteCallbacks(
@@ -42,7 +36,7 @@ class RemoteCallbacks(
     val onPickTv: () -> Unit,
     val onOverflow: () -> Unit,
     val onWifiSettings: () -> Unit,
-    val onKeyboard: () -> Unit = {}
+    val onKeyboard: () -> Unit
 )
 
 /**
@@ -59,9 +53,7 @@ fun compactRemote(height: Dp, fontScale: Float): Boolean =
  */
 @Composable
 fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modifier = Modifier) {
-    var backgroundOrigin by remember { mutableStateOf(Offset.Zero) }
-    var padCenter by remember { mutableStateOf(Offset.Zero) }
-    var glowRadius by remember { mutableStateOf(1f) }
+    val glow = rememberRemoteGlowState()
     val selected = state.selected != null
     // Ordinary keys stay live while reconnecting so one fresh key can wait; app buttons do not.
     val keys = state.keysEnabled
@@ -69,11 +61,7 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
     BoxWithConstraints(
         modifier
             .fillMaxSize()
-            .onGloballyPositioned { backgroundOrigin = it.positionInRoot() }
-            .drawWithCache {
-                val brush = remoteBackgroundBrush(padCenter - backgroundOrigin, glowRadius)
-                onDrawBehind { drawRect(brush) }
-            }
+            .remoteGlow(glow)
             .safeDrawingPadding()
             .padding(horizontal = 16.dp)
             .testTag("remote")
@@ -95,11 +83,7 @@ fun RemoteScreen(state: RemoteState, callbacks: RemoteCallbacks, modifier: Modif
             DirectionPad(
                 keys,
                 callbacks.onKey,
-                Modifier.weight(1f).fillMaxWidth().onGloballyPositioned {
-                    padCenter =
-                        it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f)
-                    glowRadius = it.size.width * 0.85f
-                }
+                Modifier.weight(1f).fillMaxWidth().remoteGlowAnchor(glow)
             )
             Spacer(Modifier.height(gap))
             NavigationActions(

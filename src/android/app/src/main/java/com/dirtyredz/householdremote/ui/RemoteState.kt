@@ -28,6 +28,9 @@ data class RemoteState(
     val inputEnabled: Boolean
         get() = selected != null && ready && power.idle && !power.standbySent
 
+    /** Keyboard intent is visible only while the selected TV can accept text input. */
+    val keyboardVisible: Boolean get() = keyboardOpen && inputEnabled
+
     /**
      * Ordinary navigation/volume keys: usable now, or one fresh key may wait for automatic
      * recovery, which needs Wi-Fi. App launches, Exit and standby stay on [inputEnabled].
@@ -44,3 +47,7 @@ data class RemoteState(
     /** An app button works on a usable session unless the TV said the app is not installed. */
     fun appEnabled(app: TvApp): Boolean = inputEnabled && install(app) != AppInstall.NotInstalled
 }
+
+/** A loss of text input availability consumes keyboard intent instead of suspending it. */
+internal fun RemoteState.clearUnavailableKeyboardIntent(): RemoteState =
+    if (keyboardOpen && !inputEnabled) copy(keyboardOpen = false) else this

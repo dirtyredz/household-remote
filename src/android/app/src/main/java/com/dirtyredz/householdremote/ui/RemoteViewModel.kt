@@ -75,6 +75,10 @@ class RemoteViewModel(
     private var operation: Job? = null
     private var foreground = false
 
+    private fun updateState(transform: (RemoteState) -> RemoteState) {
+        mutable.value = transform(mutable.value).clearUnavailableKeyboardIntent()
+    }
+
     init {
         session = sessionFactory(
             viewModelScope,
@@ -82,7 +86,7 @@ class RemoteViewModel(
             { status ->
                 val previous = mutable.value
                 val wasReady = previous.ready
-                mutable.value = previous.copy(connection = status)
+                updateState { it.copy(connection = status) }
                 when {
                     // Only a new usable session starts input; a held fresh key goes out once.
                     status.ready && !wasReady -> {
@@ -114,7 +118,7 @@ class RemoteViewModel(
             dispatcher::launch,
             { tv -> state.value.selected?.mac == tv.mac },
             { foreground },
-            { found -> mutable.value = mutable.value.copy(apps = found) }
+            { found -> updateState { it.copy(apps = found) } }
         )
         power = powerFactory(
             viewModelScope,
@@ -133,10 +137,7 @@ class RemoteViewModel(
                     return dispatcher.standby()
                 }
             },
-            { power ->
-                val next = mutable.value.copy(power = power)
-                mutable.value = next.copy(keyboardOpen = next.keyboardOpen && next.inputEnabled)
-            }
+            { power -> updateState { it.copy(power = power) } }
         )
     }
 
@@ -144,18 +145,16 @@ class RemoteViewModel(
         if (foreground &&
             state.value.inputEnabled
         ) {
-            mutable.value = state.value.copy(keyboardOpen = true)
+            updateState { it.copy(keyboardOpen = true) }
         }
     }
 
     fun dismissKeyboard() {
-        mutable.value = mutable.value.copy(keyboardOpen = false)
+        updateState { it.copy(keyboardOpen = false) }
     }
 
     fun sendText(text: String) {
-        if (foreground && state.value.inputEnabled &&
-            state.value.keyboardOpen
-        ) {
+        if (foreground && state.value.keyboardVisible) {
             dispatcher.text(text)
         }
         dismissKeyboard()
@@ -170,7 +169,7 @@ class RemoteViewModel(
     }
 
     private fun wifiChanged(available: Boolean) {
-        mutable.value = mutable.value.copy(onWifi = available)
+        updateState { it.copy(onWifi = available) }
         session.networkChanged(available)
     }
 
@@ -185,10 +184,12 @@ class RemoteViewModel(
     }
 
     private fun refresh() {
-        mutable.value = mutable.value.copy(
-            tvs = household.tvs,
-            selected = household.tvs.find { it.id == household.selected }
-        )
+        updateState {
+            it.copy(
+                tvs = household.tvs,
+                selected = household.tvs.find { tv -> tv.id == household.selected }
+            )
+        }
     }
 
     private fun updateHousehold(update: (Household) -> Household) {
@@ -226,16 +227,16 @@ class RemoteViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutable.value = mutable.value.copy(message = error.message ?: "Operation failed")
+                updateState { it.copy(message = error.message ?: "Operation failed") }
             }
         }
     }
 
     fun discover() = action {
-        mutable.value = mutable.value.copy(message = "Discovering TVs…")
+        updateState { it.copy(message = "Discovering TVs…") }
         val found = discovery.discover()
         updateHousehold { repository.merge(it, found) }
-        mutable.value = mutable.value.copy(message = "Found ${found.size} TV(s)")
+        updateState { it.copy(message = "Found ${found.size} TV(s)") }
     }
 
     fun add(ip: String) = action {
@@ -251,9 +252,9 @@ class RemoteViewModel(
     fun importManifest(text: String) = action {
         val imported = HouseholdImport.parse(text)
         updateHousehold { repository.merge(it, imported.tvs) }
-        mutable.value = mutable.value.copy(
-            message = "Imported ${imported.tvs.size} TV(s); each phone must pair"
-        )
+        updateState {
+            it.copy(message = "Imported ${imported.tvs.size} TV(s); each phone must pair")
+        }
     }
 
     fun tap(key: String) {

@@ -18,11 +18,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dirtyredz.householdremote.network.openWifiSettings
 import com.dirtyredz.householdremote.ui.remote.RemoteCallbacks
 import com.dirtyredz.householdremote.ui.remote.RemoteScreen
-import com.dirtyredz.householdremote.ui.remote.keyboard.TvKeyboardDialog
 import com.dirtyredz.householdremote.ui.settings.RemoteSettingsSheet
 import com.dirtyredz.householdremote.ui.settings.SettingsDialog
 import com.dirtyredz.householdremote.ui.setup.ImportManifestDialog
 import com.dirtyredz.householdremote.ui.setup.PairingDialog
+import com.dirtyredz.householdremote.ui.setup.TvKeyboardDialog
 import com.dirtyredz.householdremote.ui.setup.TvManagementSheet
 
 private enum class Overlay { Tvs, Actions, Settings, Import, Pairing }
@@ -69,7 +69,7 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             onKeyboard = model::openKeyboard
         )
     )
-    if (state.keyboardOpen && state.inputEnabled) {
+    if (state.keyboardVisible) {
         TvKeyboardDialog(onDone = model::sendText, onDismiss = model::dismissKeyboard)
     }
     val tv = state.selected
