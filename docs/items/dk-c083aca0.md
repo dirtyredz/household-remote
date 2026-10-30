@@ -24,3 +24,7 @@ Scope: restyle only. The layout approved in v0.2.3 is unchanged: the power butto
 Icon: an adaptive icon (vector foreground plus background) with an optional monochrome layer, readable at launcher sizes. The repository icon check passes.
 
 Acceptance: the VERIFY.md fast gate passes; the owner confirms on the installed release that the look matches mockup C, the OK button is a heart, and the new icon appears.
+
+Revision 2026-10-30 (household feedback on v0.2.4): no purple anywhere. Use hot pink, not baby or pastel pink, on black. New palette: a solid black background (no gradient), near-black surfaces, and hot pink (around #FF1493 to #FF2D95) for the primary colour, the heart OK, the arrows, the ring and the accents. Lavender and plum are removed from the UI, the theme and the launcher icon. The icon becomes a hot-pink heart with hot-pink arrows on black. Text stays white or near-white, and the power button stays red. Acceptance: the owner confirms on the installed release that no purple remains, the pink reads as hot pink, and the background is black.
+
+Refinement 2026-10-30: a subtle background gradient is acceptable if it runs from black to a dark rose pink. The black stays dominant, there is still no purple, and hot pink remains the accent. Mockups for the final pick are in .tmp/ui-redesign/mockups-v2.
