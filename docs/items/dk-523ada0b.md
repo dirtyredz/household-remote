@@ -2,8 +2,8 @@
 id: dk-523ada0b
 type: feature
 created: 2026-10-28
-status: wip
-since: 2026-10-28
+status: done
+since: 2026-10-30
 area: ui
 priority: P1
 rank: z
@@ -27,6 +27,8 @@ Implementation on fix/power-below-header gives the picker priority over an ellip
 Remaining acceptance is an attended phone check of the revised header and fit, static power icon through standby/wake/reconnect, real connection states and Wi-Fi shortcut, and physical controls.
 
 Acceptance: VERIFY.md fast gate passes; JVM tests cover power/status logic; Compose tests compile; attended phone check of power discoverability, standby/wake, and status indicator.
+
+Attended acceptance 2026-10-30: the owner installed signed release v0.2.3 (tag commit da46a84cabd8569ca254756ef15048a3425c004e) on the phone and confirmed the header shows the full TV name and the power button sits on its own row beneath the TV dropdown on the left. States: implemented, verified (fast gate), published, confirmed installed.
 
 ## Notes
 
