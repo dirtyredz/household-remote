@@ -1,4 +1,4 @@
-package com.dirtyredz.householdremote.ui.remote.keyboard
+package com.dirtyredz.householdremote.ui.setup
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardActions
@@ -22,17 +22,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import com.dirtyredz.householdremote.R
-import com.dirtyredz.householdremote.ui.remote.FitText
-import com.dirtyredz.householdremote.ui.remote.RemoteButton
 import com.dirtyredz.householdremote.ui.theme.RemoteTokens
-
-@Composable
-fun KeyboardButton(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val label = stringResource(R.string.tv_keyboard)
-    RemoteButton(label, onClick, modifier, enabled, tag = "keyboard") {
-        FitText(label, MaterialTheme.typography.labelMedium)
-    }
-}
 
 /** Draft stays only in this dialog's memory; dismissing never transmits or restores it. */
 @Composable

@@ -77,4 +77,22 @@ class RemoteStateTest {
         assertFalse("recovery is parked until Wi-Fi returns", parked.keysEnabled)
         assertTrue(parked.copy(onWifi = true).keysEnabled)
     }
+
+    @Test fun keyboardDoesNotReappearAfterReconnectWithoutFreshIntent() {
+        var value = state(ConnectionState.Connected).copy(keyboardOpen = true)
+        assertTrue(value.keyboardVisible)
+
+        value = value.copy(
+            connection = ConnectionStatus(ConnectionState.Reconnecting, "Reconnecting")
+        ).clearUnavailableKeyboardIntent()
+        assertFalse(value.keyboardOpen)
+        assertFalse(value.keyboardVisible)
+
+        value = value.copy(connection = ConnectionStatus(ConnectionState.Connected, "Connected"))
+            .clearUnavailableKeyboardIntent()
+        assertFalse("reconnect must not restore stale keyboard intent", value.keyboardVisible)
+
+        value = value.copy(keyboardOpen = true).clearUnavailableKeyboardIntent()
+        assertTrue("a fresh IME start or button press may reopen it", value.keyboardVisible)
+    }
 }
