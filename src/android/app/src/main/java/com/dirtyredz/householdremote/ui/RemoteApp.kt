@@ -101,7 +101,12 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             onDismiss = ::close
         )
 
-        Overlay.Settings -> SettingsDialog(messages = model.tvMessages, onDismiss = ::close)
+        Overlay.Settings -> SettingsDialog(
+            messages = model.tvMessages,
+            gridDelayMs = state.gridDelayMs,
+            onGridDelay = model::setGridDelay,
+            onDismiss = ::close
+        )
 
         Overlay.Import -> ImportManifestDialog(
             onImport = {

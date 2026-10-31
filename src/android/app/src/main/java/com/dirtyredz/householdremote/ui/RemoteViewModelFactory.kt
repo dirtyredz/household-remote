@@ -24,7 +24,10 @@ class RemoteViewModelFactory(private val application: Application) : ViewModelPr
         val probe = TvInfoClient()
         val wake = WakeOnLan(application)
         LegacyShortcuts.discard(application)
+        val typingSettings = application.getSharedPreferences("typing", 0)
         return RemoteViewModel(
+            initialGridDelayMs = typingSettings.getLong("gridDelayMs", 400),
+            saveGridDelay = { typingSettings.edit().putLong("gridDelayMs", it).apply() },
             repository = TvRepository(application),
             probe = probe,
             appProbe = AppInstallClient(),

@@ -24,6 +24,11 @@ class KeyDispatcher(
     private var worker: Job? = null
     private var pending: String? = null
     private var pendingExpiry: Job? = null
+    var gridDelayMs: Long = 400
+        set(value) {
+            field = value.coerceIn(200, 1000)
+        }
+    var gridAttempt: (String, String) -> Unit = { _, _ -> }
     val holding: Boolean get() = pending != null
 
     /** Starts a fresh queue for a new usable session and submits a still-valid held key once. */
@@ -42,11 +47,15 @@ class KeyDispatcher(
                 for (signal in queue) {
                     while (entries.isNotEmpty) {
                         val entry = entries.removeFirst()
+                        if (entry is InputEntry.Grid && entry.target != null) {
+                            gridAttempt(entry.frame, entry.target)
+                        }
                         if (!send(entry.frame)) {
                             dropped()
                             cancel()
                             break
                         }
+                        if (entry is InputEntry.Grid) delay(entry.delayMs)
                     }
                 }
             }
@@ -65,6 +74,21 @@ class KeyDispatcher(
      */
     fun launch(app: TvApp): Boolean =
         enqueue(InputEntry.Launch(SamsungProtocol.launch(app.appId, app.launchType)))
+
+    fun grid(presses: List<GridPress>): Boolean {
+        val queue = channel ?: return false
+        val frames = presses.map {
+            val spacing = if (it.target != null) gridDelayMs else 0
+            InputEntry.Grid(SamsungProtocol.key(it.key), it.target, spacing)
+        }
+        if (!entries.grid(frames)) return false
+        queue.trySend(Unit)
+        return true
+    }
+
+    fun discardGrid() {
+        entries.discardGrid()
+    }
 
     /** Replace only the still-unsent snapshot, without a timer. */
     fun text(text: String): Boolean {

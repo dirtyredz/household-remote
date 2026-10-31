@@ -6,6 +6,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TvMessageLogTest {
+    @Test fun gridAttemptsIncludeKeyAndTargetWithoutUnsupportedText() {
+        val log = TvMessageLog { "now" }
+        log.gridPress(SamsungProtocol.key("KEY_DOWN"), "h")
+        log.gridPress(SamsungProtocol.key("KEY_ENTER"), "h")
+        log.ignoredGridCharacter()
+        assertTrue(log.entries.value[0].contains("grid: h"))
+        assertTrue(log.entries.value[0].contains("KEY_DOWN"))
+        assertTrue(log.entries.value[1].contains("KEY_ENTER"))
+        assertEquals("now grid: unsupported character ignored", log.entries.value[2])
+    }
+
     @Test fun redactsNestedIdentityAndKeepsEventEnvelope() {
         val log = TvMessageLog { "now" }
         log.beginAttempt("living", listOf("Living TV"))

@@ -1,5 +1,6 @@
 package com.dirtyredz.householdremote.ui.typing
 
+import com.dirtyredz.householdremote.remote.GridTyping
 import com.dirtyredz.householdremote.remote.SamsungProtocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -7,18 +8,40 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TypingInputTest {
+    @Test fun imeStartDiscardsGridAndPreservesFullDraftSnapshots() {
+        val snapshots = mutableListOf<String>()
+        val gridKeys = mutableListOf<String>()
+        val input = TypingInput(
+            { snapshots.add(it) },
+            GridTyping({ presses -> gridKeys.addAll(presses.map { it.key }) }),
+            { gridKeys.clear() }
+        )
+        input.open(tvImeActive = false)
+        input.changed("h")
+        assertTrue(gridKeys.isNotEmpty())
+        input.tvImeStarted()
+        input.changed("h1")
+        input.changed("h")
+        input.changed("")
+        input.changed("é")
+        assertTrue(gridKeys.isEmpty())
+        assertEquals(listOf("h1", "h", "", "é"), snapshots)
+    }
+
     @Test fun digitWithoutTvImeUsesRemoteKeyWithoutDuplicateTextOrEnter() {
         val frames = mutableListOf<String>()
         val input = TypingInput(
             { frames.add(SamsungProtocol.text(it)) },
-            { frames.add(SamsungProtocol.key("KEY_$it")) }
+            GridTyping({ presses ->
+                frames.addAll(presses.map { SamsungProtocol.key(it.key) })
+                true
+            })
         )
 
         input.open(tvImeActive = false)
-        input.changed("a")
-        input.changed("a1")
+        input.changed("1")
 
-        assertEquals(listOf(SamsungProtocol.text("a"), SamsungProtocol.key("KEY_1")), frames)
+        assertEquals(listOf(SamsungProtocol.key("KEY_1")), frames)
         assertFalse(frames.any { it.contains("KEY_ENTER") })
     }
 
@@ -26,7 +49,10 @@ class TypingInputTest {
         val frames = mutableListOf<String>()
         val input = TypingInput(
             { frames.add(SamsungProtocol.text(it)) },
-            { frames.add(SamsungProtocol.key("KEY_$it")) }
+            GridTyping({ presses ->
+                frames.addAll(presses.map { SamsungProtocol.key(it.key) })
+                true
+            })
         )
 
         input.open(tvImeActive = true)
@@ -41,12 +67,16 @@ class TypingInputTest {
         val frames = mutableListOf<String>()
         val input = TypingInput(
             { frames.add(SamsungProtocol.text(it)) },
-            { frames.add(SamsungProtocol.key("KEY_$it")) }
+            GridTyping({ presses ->
+                frames.addAll(presses.map { SamsungProtocol.key(it.key) })
+                true
+            })
         )
 
         input.open(tvImeActive = true)
         input.changed("1")
         input.reset()
+        assertFalse(input.changed("stale"))
         input.open(tvImeActive = false)
         input.changed("2")
 

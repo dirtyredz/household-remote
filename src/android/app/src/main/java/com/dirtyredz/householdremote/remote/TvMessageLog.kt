@@ -36,6 +36,14 @@ class TvMessageLog(private val now: () -> String = { Instant.now().toString() })
 
     fun incoming(raw: String) = record("IN", raw)
 
+    fun gridPress(raw: String, target: String) =
+        record("OUT (socket attempt; grid: ${scrub(target)})", raw)
+
+    fun ignoredGridCharacter() {
+        mutable.value =
+            (mutable.value + "${now()} grid: unsupported character ignored").takeLast(100)
+    }
+
     fun outgoing(raw: String) {
         val value = runCatching { Json.parseToJsonElement(raw) as JsonObject }.getOrNull() ?: return
         val params = value["params"] as? JsonObject ?: return

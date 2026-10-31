@@ -1,5 +1,15 @@
 # Decisions
 
+## ADR: App letter-grid typing (2026-10-30)
+
+Status: implements the owner grid decision in dk-811e7991; attended acceptance pending. Supersedes the no-IME snapshot fallback and the earlier statement that typing never emits Enter. [Research](research/tizen-app-search-text-input.md) established that Prime Video, Netflix and YouTube draw grids and ignore SendInputString; the owner verified one shared six-column layout and initial focus on a for all three.
+
+Without a TV IME, ASCII letters (folded to lowercase), space and deletions navigate the grid and press KEY_ENTER only as its OK. Digits remain KEY_0..KEY_9 for Netflix PINs and never change tracked focus. Unsupported characters are ignored with a content-free diagnostic. Changes replace the changed draft suffix using one backspace per removed character then the new suffix; phone caret placement cannot move a TV text caret. A keyboard open assumes a; close, loss of input and reconnect invalidate it. No corner-seeking or reset strip is added: open app search fresh before Keyboard.
+
+The layout is data in remote/GridLayout, injectable for later per-app overrides. Breadth-first paths are shortest on a directed graph and never step past an edge. Down maps column c into bottom cell c/2; Up uses the owner-verified left-column landing (space to 5, backspace to 7, Clear to 9), establishing a known regular cell without relying on a remembered subcolumn. Horizontal bottom-row moves go between its three cells.
+
+Grid presses share the existing ordered queue and normal usable-session/foreground gates. Default spacing is 400 ms, persisted in Settings with a 200–1000 ms range; each accepted batch captures the current delay. Fast typing queues suffix edits without coalescing. Close drops pending grid work, including digit keys; teardown cancels everything, with no recovery hold or replay. If the bounded queue rejects a batch, position becomes unknown until Keyboard is reopened. TV IME full-string snapshots and input-end behavior stay unchanged. Per-press diagnostics include the target label; no external API, calibration flow or new network transport is introduced.
+
 - Owner overrides the original plan: separate household-remote repo, Compose, phases 1/2/3/6 only. `owner` is a distinct package with identical remote functionality and no administration authority. No helper, enrollment, AdGuard or timer code in v1.
 - Command Deck toolchain: AGP 8.13.2, Kotlin 2.3.21, Compose BOM 2026.03.01, SDK 36/min 26, JVM 17. Command Deck has no ktlint Gradle setup; use Agent Eye's ktlint 14.2.0 plugin. JSON suffices; no Room.
 - The source repository `dirtyredz/household-remote` is public. CI drafts unsigned artifacts here; attended signing replaces draft assets and publishes this same release last. The app reads this repository anonymously. No separate releases repository or GitHub credentials in the app.

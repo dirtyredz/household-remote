@@ -5,6 +5,8 @@ internal sealed interface InputEntry {
 
     data class Key(override val frame: String) : InputEntry
 
+    data class Grid(override val frame: String, val target: String?, val delayMs: Long) : InputEntry
+
     data class Launch(override val frame: String) : InputEntry
 
     class Snapshot(override var frame: String) : InputEntry
@@ -34,6 +36,17 @@ internal class InputQueue(private val controlLimit: Int = CONTROL_LIMIT) {
         return true
     }
 
+    fun grid(presses: List<InputEntry.Grid>): Boolean {
+        if (entries.size + presses.size > 8192) return false
+        entries.addAll(presses)
+        liveSnapshot = null
+        return true
+    }
+
+    fun discardGrid() {
+        entries.removeAll { it is InputEntry.Grid }
+    }
+
     fun snapshot(frame: String): Boolean {
         if (ending) return false
         val previous = liveSnapshot
@@ -59,6 +72,7 @@ internal class InputQueue(private val controlLimit: Int = CONTROL_LIMIT) {
     }
 
     fun discardText() {
+        discardGrid()
         entries.removeAll { it is InputEntry.Snapshot || it is InputEntry.End }
         liveSnapshot = null
         ending = false

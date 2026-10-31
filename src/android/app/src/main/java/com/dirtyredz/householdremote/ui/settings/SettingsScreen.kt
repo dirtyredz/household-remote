@@ -12,6 +12,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,7 +32,12 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** Full-screen settings surface, separate from the remote's quick actions. */
 @Composable
-fun SettingsDialog(messages: StateFlow<List<String>>, onDismiss: () -> Unit) {
+fun SettingsDialog(
+    messages: StateFlow<List<String>>,
+    gridDelayMs: Long,
+    onGridDelay: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -40,7 +46,12 @@ fun SettingsDialog(messages: StateFlow<List<String>>, onDismiss: () -> Unit) {
         if (showMessages) {
             TvMessagesScreen(messages, onBack = { showMessages = false })
         } else {
-            SettingsScreen(onBack = onDismiss, onMessages = { showMessages = true })
+            SettingsScreen(
+                onBack = onDismiss,
+                onMessages = { showMessages = true },
+                gridDelayMs = gridDelayMs,
+                onGridDelay = onGridDelay
+            )
         }
     }
 }
@@ -50,6 +61,8 @@ fun SettingsDialog(messages: StateFlow<List<String>>, onDismiss: () -> Unit) {
 internal fun SettingsScreen(
     onBack: () -> Unit,
     onMessages: () -> Unit = {},
+    gridDelayMs: Long = 400,
+    onGridDelay: (Long) -> Unit = {},
     updateContent: @Composable () -> Unit = { UpdateControl() }
 ) {
     BackHandler(onBack = onBack)
@@ -75,6 +88,14 @@ internal fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 TextButton(onClick = onMessages) { Text("TV messages") }
+                Text("Grid typing delay: $gridDelayMs ms")
+                Slider(
+                    value = gridDelayMs.toFloat(),
+                    onValueChange = { onGridDelay((it / 50).toLong() * 50) },
+                    valueRange = 200f..1000f,
+                    steps = 15
+                )
+                Text("Open app search fresh with the highlight on a before opening Keyboard.")
                 Text("App updates", style = MaterialTheme.typography.titleLarge)
                 HorizontalDivider(Modifier.fillMaxWidth())
                 Text("Current version ${BuildConfig.VERSION_NAME}")

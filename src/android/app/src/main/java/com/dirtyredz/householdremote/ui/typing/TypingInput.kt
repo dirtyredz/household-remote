@@ -1,41 +1,43 @@
 package com.dirtyredz.householdremote.ui.typing
 
+import com.dirtyredz.householdremote.remote.GridTyping
+
 /** Routes one keyboard generation according to whether this TV attempt opened its IME. */
 internal class TypingInput(
     private val sendSnapshot: (String) -> Boolean,
-    private val sendDigit: (Char) -> Boolean
+    private val grid: GridTyping,
+    private val discardGrid: () -> Unit = {}
 ) {
     private var draft = ""
     private var tvImeActive = false
+    private var opened = false
 
     fun open(tvImeActive: Boolean) {
-        draft = ""
+        reset()
+        opened = true
         this.tvImeActive = tvImeActive
+        if (!tvImeActive) grid.open()
     }
 
     fun tvImeStarted() {
+        discardGrid()
+        grid.reset()
         tvImeActive = true
     }
 
     fun reset() {
+        discardGrid()
+        grid.reset()
         draft = ""
         tvImeActive = false
+        opened = false
     }
 
     fun changed(next: String): Boolean {
-        val digit = insertedDigit(draft, next)
+        if (!opened) return false
+        val accepted = if (tvImeActive) sendSnapshot(next) else grid.edit(draft, next)
         draft = next
-        return if (!tvImeActive && digit != null) sendDigit(digit) else sendSnapshot(next)
-    }
-
-    private fun insertedDigit(previous: String, next: String): Char? {
-        if (next.length != previous.length + 1) return null
-        val insertion = previous.indices.firstOrNull { previous[it] != next[it] } ?: previous.length
-        val digit = next[insertion]
-        if (digit !in '0'..'9') return null
-        return digit.takeIf {
-            previous.regionMatches(insertion, next, insertion + 1, previous.length - insertion)
-        }
+        return accepted
     }
 }
 

@@ -18,6 +18,7 @@ import com.dirtyredz.householdremote.power.PowerLink
 import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
+import com.dirtyredz.householdremote.remote.GridTyping
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.security.Credentials
@@ -59,13 +60,16 @@ class RemoteViewModel(
     credentials: Credentials,
     sessionFactory: RemoteSessionFactory,
     dispatcherFactory: KeyDispatcherFactory,
-    powerFactory: PowerControllerFactory
+    powerFactory: PowerControllerFactory,
+    initialGridDelayMs: Long = 400,
+    private val saveGridDelay: (Long) -> Unit = {}
 ) : ViewModel() {
     private var household = repository.load()
     private val mutable = MutableStateFlow(
         RemoteState(
             household.tvs,
-            household.tvs.find { it.id == household.selected }
+            household.tvs.find { it.id == household.selected },
+            gridDelayMs = initialGridDelayMs.coerceIn(200, 1000)
         )
     )
     val state = mutable.asStateFlow()
@@ -88,6 +92,7 @@ class RemoteViewModel(
 
     /** The one invalidation path for keyboard intent and its still-unsent dispatcher work. */
     private fun clearKeyboardIntent(next: RemoteState = mutable.value, endText: Boolean = false) {
+        typing.reset()
         val finish: () -> Unit = {
             if (endText && foreground && next.keyboardVisible) {
                 dispatcher.endText()
@@ -130,7 +135,13 @@ class RemoteViewModel(
             { session.send(it) },
             {}
         )
-        typing = TypingInput(dispatcher::text) { digit -> dispatcher.tap("KEY_$digit") }
+        dispatcher.gridDelayMs = state.value.gridDelayMs
+        dispatcher.gridAttempt = session.messages::gridPress
+        typing = TypingInput(
+            dispatcher::text,
+            GridTyping(dispatcher::grid, session.messages::ignoredGridCharacter),
+            dispatcher::discardGrid
+        )
         apps = AppController(
             viewModelScope,
             appProbe,
@@ -162,6 +173,12 @@ class RemoteViewModel(
     }
 
     val tvMessages get() = session.messages.entries
+
+    fun setGridDelay(value: Long) {
+        dispatcher.gridDelayMs = value
+        updateState { it.copy(gridDelayMs = dispatcher.gridDelayMs) }
+        saveGridDelay(dispatcher.gridDelayMs)
+    }
 
     fun openKeyboard() {
         if (foreground && state.value.inputEnabled) {
