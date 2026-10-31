@@ -18,6 +18,7 @@ import com.dirtyredz.householdremote.power.PowerLink
 import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
+import com.dirtyredz.householdremote.remote.GridPacing
 import com.dirtyredz.householdremote.remote.GridTyping
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
@@ -41,7 +42,9 @@ typealias RemoteSessionFactory = (
 typealias KeyDispatcherFactory = (
     CoroutineScope,
     (String) -> Boolean,
-    () -> Unit
+    () -> Unit,
+    Long,
+    (String, String) -> Unit
 ) -> KeyDispatcher
 
 typealias PowerControllerFactory = (
@@ -61,7 +64,7 @@ class RemoteViewModel(
     sessionFactory: RemoteSessionFactory,
     dispatcherFactory: KeyDispatcherFactory,
     powerFactory: PowerControllerFactory,
-    initialGridDelayMs: Long = 400,
+    initialGridDelayMs: Long = GridPacing.DEFAULT_MS,
     private val saveGridDelay: (Long) -> Unit = {}
 ) : ViewModel() {
     private var household = repository.load()
@@ -69,7 +72,7 @@ class RemoteViewModel(
         RemoteState(
             household.tvs,
             household.tvs.find { it.id == household.selected },
-            gridDelayMs = initialGridDelayMs.coerceIn(200, 1000)
+            gridDelayMs = GridPacing.coerce(initialGridDelayMs)
         )
     )
     val state = mutable.asStateFlow()
@@ -133,10 +136,10 @@ class RemoteViewModel(
         dispatcher = dispatcherFactory(
             viewModelScope,
             { session.send(it) },
-            {}
+            {},
+            state.value.gridDelayMs,
+            session.messages::gridPress
         )
-        dispatcher.gridDelayMs = state.value.gridDelayMs
-        dispatcher.gridAttempt = session.messages::gridPress
         typing = TypingInput(
             dispatcher::text,
             GridTyping(dispatcher::grid, session.messages::ignoredGridCharacter),
@@ -175,9 +178,9 @@ class RemoteViewModel(
     val tvMessages get() = session.messages.entries
 
     fun setGridDelay(value: Long) {
-        dispatcher.gridDelayMs = value
-        updateState { it.copy(gridDelayMs = dispatcher.gridDelayMs) }
-        saveGridDelay(dispatcher.gridDelayMs)
+        val delayMs = dispatcher.setGridDelay(value)
+        updateState { it.copy(gridDelayMs = delayMs) }
+        saveGridDelay(delayMs)
     }
 
     fun openKeyboard() {
@@ -202,12 +205,10 @@ class RemoteViewModel(
     }
 
     fun closeKeyboard() {
-        typing.reset()
         clearKeyboardIntent(endText = true)
     }
 
     private fun dismissKeyboard() {
-        typing.reset()
         clearKeyboardIntent()
     }
 
@@ -232,7 +233,6 @@ class RemoteViewModel(
 
     fun stop() {
         foreground = false
-        typing.reset()
         clearKeyboardIntent()
         wifi.stop()
         operation?.cancel()

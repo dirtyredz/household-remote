@@ -1,12 +1,17 @@
 package com.dirtyredz.householdremote.ui.typing
 
 import com.dirtyredz.householdremote.remote.GridTyping
+import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.SamsungProtocol
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TypingInputTest {
     @Test fun imeStartDiscardsGridAndPreservesFullDraftSnapshots() {
         val snapshots = mutableListOf<String>()
@@ -90,5 +95,63 @@ class TypingInputTest {
         assertFalse(visibility.changed(visible = true))
         assertTrue(visibility.changed(visible = false))
         assertFalse(visibility.changed(visible = false))
+    }
+
+    @Test fun everyCancellationSourceKeepsGridAndTextQueueSemantics() = runTest {
+        for (source in CancellationSource.entries) {
+            val sent = mutableListOf<String>()
+            val dispatcher = KeyDispatcher(backgroundScope, { sent.add(it) }, {})
+            val input = TypingInput(
+                dispatcher::text,
+                GridTyping(dispatcher::grid),
+                dispatcher::discardGrid
+            )
+            dispatcher.start()
+            input.open(tvImeActive = false)
+            input.changed("h")
+            dispatcher.text("pending")
+
+            when (source) {
+                CancellationSource.Close -> {
+                    input.reset()
+                    dispatcher.endText()
+                }
+
+                CancellationSource.Dismiss -> {
+                    input.reset()
+                    dispatcher.discardText()
+                }
+
+                CancellationSource.Stop -> {
+                    input.reset()
+                    dispatcher.discardText()
+                    dispatcher.cancel()
+                }
+
+                CancellationSource.Disconnect,
+                CancellationSource.TvSwitch -> {
+                    dispatcher.cancel()
+                    input.reset()
+                    dispatcher.discardText()
+                }
+            }
+            runCurrent()
+
+            val expected = if (source == CancellationSource.Close) {
+                listOf(SamsungProtocol.text("pending"), SamsungProtocol.inputEnd())
+            } else {
+                emptyList()
+            }
+            assertEquals(source.name, expected, sent)
+            dispatcher.cancel()
+        }
+    }
+
+    private enum class CancellationSource {
+        Close,
+        Dismiss,
+        Stop,
+        Disconnect,
+        TvSwitch
     }
 }

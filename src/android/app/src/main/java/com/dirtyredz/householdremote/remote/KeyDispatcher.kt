@@ -17,18 +17,17 @@ class KeyDispatcher(
     private val scope: CoroutineScope,
     private val send: (String) -> Boolean,
     private val dropped: () -> Unit,
-    private val pendingMs: Long = PENDING_KEY_MS
+    private val pendingMs: Long = PENDING_KEY_MS,
+    gridDelayMs: Long = GridPacing.DEFAULT_MS,
+    private val gridAttempt: (String, String) -> Unit = { _, _ -> }
 ) {
     private var channel: Channel<Unit>? = null
     private val entries = InputQueue()
     private var worker: Job? = null
     private var pending: String? = null
     private var pendingExpiry: Job? = null
-    var gridDelayMs: Long = 400
-        set(value) {
-            field = value.coerceIn(200, 1000)
-        }
-    var gridAttempt: (String, String) -> Unit = { _, _ -> }
+    private var activeGridDelayMs = GridPacing.coerce(gridDelayMs)
+    val gridDelayMs: Long get() = activeGridDelayMs
     val holding: Boolean get() = pending != null
 
     /** Starts a fresh queue for a new usable session and submits a still-valid held key once. */
@@ -84,6 +83,11 @@ class KeyDispatcher(
         if (!entries.grid(frames)) return false
         queue.trySend(Unit)
         return true
+    }
+
+    fun setGridDelay(delayMs: Long): Long {
+        activeGridDelayMs = GridPacing.coerce(delayMs)
+        return gridDelayMs
     }
 
     fun discardGrid() {

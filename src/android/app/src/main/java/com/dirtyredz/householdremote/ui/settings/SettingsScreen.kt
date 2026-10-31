@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dirtyredz.householdremote.BuildConfig
+import com.dirtyredz.householdremote.remote.GridPacing
 import kotlinx.coroutines.flow.StateFlow
 
 /** Full-screen settings surface, separate from the remote's quick actions. */
@@ -61,7 +62,7 @@ fun SettingsDialog(
 internal fun SettingsScreen(
     onBack: () -> Unit,
     onMessages: () -> Unit = {},
-    gridDelayMs: Long = 400,
+    gridDelayMs: Long = GridPacing.DEFAULT_MS,
     onGridDelay: (Long) -> Unit = {},
     updateContent: @Composable () -> Unit = { UpdateControl() }
 ) {
@@ -91,9 +92,12 @@ internal fun SettingsScreen(
                 Text("Grid typing delay: $gridDelayMs ms")
                 Slider(
                     value = gridDelayMs.toFloat(),
-                    onValueChange = { onGridDelay((it / 50).toLong() * 50) },
-                    valueRange = 200f..1000f,
-                    steps = 15
+                    onValueChange = {
+                        onGridDelay((it / GridPacing.STEP_MS).toLong() * GridPacing.STEP_MS)
+                    },
+                    valueRange = GridPacing.MIN_MS.toFloat()..GridPacing.MAX_MS.toFloat(),
+                    steps =
+                        ((GridPacing.MAX_MS - GridPacing.MIN_MS) / GridPacing.STEP_MS).toInt() - 1
                 )
                 Text("Open app search fresh with the highlight on a before opening Keyboard.")
                 Text("App updates", style = MaterialTheme.typography.titleLarge)
