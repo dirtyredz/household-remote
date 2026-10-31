@@ -23,6 +23,21 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
+/** Latches the first visible-to-hidden transition so duplicate inset updates close only once. */
+internal class ImeVisibilityState {
+    private var seen = false
+    private var closed = false
+
+    fun changed(visible: Boolean): Boolean {
+        if (visible) seen = true
+        if (!visible && seen && !closed) {
+            closed = true
+            return true
+        }
+        return false
+    }
+}
+
 /** Invisible text focus only; the draft dies with this composition. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

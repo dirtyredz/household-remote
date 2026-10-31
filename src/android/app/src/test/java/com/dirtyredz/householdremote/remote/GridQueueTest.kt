@@ -43,10 +43,8 @@ class GridQueueTest {
                     frames.add(it)
                     times.add(testScheduler.currentTime)
                     true
-                }, {})
-            assertEquals(400L, dispatcher.gridDelayMs)
-            dispatcher.gridDelayMs = delayMs
-            dispatcher.gridAttempt = { _, target -> notes.add(target) }
+                }, {}, gridDelayMs = delayMs, gridAttempt = { _, target -> notes.add(target) })
+            assertEquals(delayMs, dispatcher.gridDelayMs)
             dispatcher.start()
             val grid = GridTyping(dispatcher::grid)
             grid.open()
@@ -63,6 +61,13 @@ class GridQueueTest {
             assertEquals(listOf("h", "h", "h", "i", "i"), notes)
             dispatcher.cancel()
         }
+    }
+
+    @Test fun gridPacingHasOneBoundedDefinition() {
+        assertEquals(200L, GridPacing.coerce(Long.MIN_VALUE))
+        assertEquals(400L, GridPacing.DEFAULT_MS)
+        assertEquals(1_000L, GridPacing.coerce(Long.MAX_VALUE))
+        assertEquals(50L, GridPacing.STEP_MS)
     }
 
     @Test fun closeDropsPendingGridIncludingDigitsButPreservesOrdinaryKeys() = runTest {
