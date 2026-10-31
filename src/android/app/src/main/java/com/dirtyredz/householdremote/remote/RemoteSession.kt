@@ -55,6 +55,7 @@ class RemoteSession(
     fun connect(tv: Tv, pairing: Boolean = false, port: Int = DEFAULT_PORT) {
         stopAll()
         target = Target(tv, port)
+        messages.selectTv(tv.mac, listOf(tv.name, tv.mac, tv.ip))
         recover = true
         failures = 0
         // No Wi-Fi: remember the TV, but never start pairing (it discards saved credentials).
@@ -133,7 +134,7 @@ class RemoteSession(
     private fun open(pairingAttempt: Boolean) {
         val tv = target?.tv ?: return
         val port = target?.port ?: return
-        messages.reset(listOf(tv.name, tv.mac, tv.ip))
+        messages.beginAttempt(tv.mac, listOf(tv.name, tv.mac, tv.ip))
         val id = ++attempt
         pairing = pairingAttempt
         // Credentials are re-read on every attempt, so a refreshed token is always used.

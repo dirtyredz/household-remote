@@ -247,6 +247,25 @@ class RecoveryPolicyTest {
         assertEquals(ConnectionState.Connected, h.state)
     }
 
+    @Test fun reconnectRetainsMessageLogWithMarkerAndLogsDigitKeys() = runTest {
+        val h = harness()
+        connected(h)
+        h.last.events.message("""{"event":"ms.remote.imeUpdate"}""")
+        runCurrent()
+        assertTrue(h.session.send(SamsungProtocol.key("KEY_7")))
+        assertEquals(3, h.session.messages.entries.value.size)
+
+        h.last.drop()
+        advanceTimeBy(1_001)
+        runCurrent()
+
+        val messages = h.session.messages.entries.value
+        assertEquals(4, messages.size)
+        assertTrue(messages[1].contains("ms.remote.imeUpdate"))
+        assertTrue(messages[2].contains("KEY_7"))
+        assertTrue(messages[3].contains("— reconnected —"))
+    }
+
     @Test fun failureStreakResetsOnlyAfterAStableConnection() = runTest {
         val h = harness()
         connected(h)

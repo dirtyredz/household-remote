@@ -21,6 +21,7 @@ import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.security.Credentials
+import com.dirtyredz.householdremote.ui.typing.TypingInput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -72,6 +73,7 @@ class RemoteViewModel(
     private val session: RemoteSession
     private val power: PowerController
     private val apps: AppController
+    private val typing: TypingInput
     private var operation: Job? = null
     private var foreground = false
 
@@ -121,13 +123,14 @@ class RemoteViewModel(
                 dispatcher.cancel()
                 dismissKeyboard()
             },
-            { active -> if (active) openKeyboard() else dismissKeyboard() }
+            ::tvImeChanged
         )
         dispatcher = dispatcherFactory(
             viewModelScope,
             { session.send(it) },
             {}
         )
+        typing = TypingInput(dispatcher::text) { digit -> dispatcher.tap("KEY_$digit") }
         apps = AppController(
             viewModelScope,
             appProbe,
@@ -162,21 +165,38 @@ class RemoteViewModel(
 
     fun openKeyboard() {
         if (foreground && state.value.inputEnabled) {
+            if (!state.value.keyboardVisible) typing.open(tvImeActive = false)
+            updateState { it.copy(keyboardOpen = true) }
+        }
+    }
+
+    private fun tvImeChanged(active: Boolean) {
+        if (!active) {
+            dismissKeyboard()
+            return
+        }
+        if (!foreground || !state.value.inputEnabled) return
+        if (state.value.keyboardVisible) {
+            typing.tvImeStarted()
+        } else {
+            typing.open(tvImeActive = true)
             updateState { it.copy(keyboardOpen = true) }
         }
     }
 
     fun closeKeyboard() {
+        typing.reset()
         clearKeyboardIntent(endText = true)
     }
 
     private fun dismissKeyboard() {
+        typing.reset()
         clearKeyboardIntent()
     }
 
     fun sendText(text: String) {
         if (foreground && state.value.keyboardVisible) {
-            dispatcher.text(text)
+            typing.changed(text)
         }
     }
 
@@ -195,6 +215,7 @@ class RemoteViewModel(
 
     fun stop() {
         foreground = false
+        typing.reset()
         clearKeyboardIntent()
         wifi.stop()
         operation?.cancel()

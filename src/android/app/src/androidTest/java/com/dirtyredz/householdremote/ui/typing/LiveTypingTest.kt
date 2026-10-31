@@ -1,9 +1,9 @@
 package com.dirtyredz.householdremote.ui.typing
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.dirtyredz.householdremote.ui.theme.RemoteTheme
 import org.junit.Assert.assertEquals
@@ -14,20 +14,21 @@ import org.junit.Test
 class LiveTypingTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun editsEmitFullSnapshotsAndCloseDoesNotSubmit() {
+    @Test fun editsEmitFullSnapshotsWithoutAVisibleStrip() {
         val changes = mutableListOf<String>()
         var closes = 0
         rule.setContent {
             RemoteTheme { LiveTyping(onTextChanged = { changes += it }, onClose = { closes++ }) }
         }
         rule.runOnIdle { assertEquals(emptyList<String>(), changes) }
+        rule.onNodeWithText("Typing on TV…").assertDoesNotExist()
+        rule.onNodeWithText("Close").assertDoesNotExist()
         for (value in listOf("a", "ab", "")) {
             rule.onNodeWithTag("live_typing_field").performTextReplacement(value)
         }
-        rule.onNodeWithText("Close").performClick()
         rule.runOnIdle {
             assertEquals(listOf("a", "ab", ""), changes)
-            assertEquals(1, closes)
+            assertEquals(0, closes)
         }
     }
 }

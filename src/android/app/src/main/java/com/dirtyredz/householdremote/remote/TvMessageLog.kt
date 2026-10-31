@@ -11,16 +11,27 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-/** Session-local diagnostics. Only sanitized values enter the bounded in-memory history. */
+/** App-session diagnostics. Only sanitized values enter the bounded in-memory history. */
 class TvMessageLog(private val now: () -> String = { Instant.now().toString() }) {
     private val mutable = MutableStateFlow<List<String>>(emptyList())
     val entries = mutable.asStateFlow()
     private var identities = emptyList<String>()
+    private var tvIdentity: String? = null
     private val pretty = Json { prettyPrint = true }
 
-    fun reset(identities: List<String>) {
+    fun selectTv(tvIdentity: String, identities: List<String>) {
         this.identities = identities.filter { it.isNotBlank() }
-        mutable.value = emptyList()
+        if (this.tvIdentity != tvIdentity) {
+            this.tvIdentity = tvIdentity
+            mutable.value = emptyList()
+        }
+    }
+
+    fun beginAttempt(tvIdentity: String, identities: List<String>) {
+        selectTv(tvIdentity, identities)
+        if (mutable.value.isNotEmpty()) {
+            mutable.value = (mutable.value + "${now()} — reconnected —").takeLast(100)
+        }
     }
 
     fun incoming(raw: String) = record("IN", raw)
@@ -29,8 +40,11 @@ class TvMessageLog(private val now: () -> String = { Instant.now().toString() })
         val value = runCatching { Json.parseToJsonElement(raw) as JsonObject }.getOrNull() ?: return
         val params = value["params"] as? JsonObject ?: return
         val type = (params["TypeOfRemote"] as? JsonPrimitive)?.contentOrNull
-        if (type != "SendInputString" && type != "SendInputEnd") return
-        record("OUT (socket attempt)", raw, keyboard = true)
+        val command = (params["DataOfCmd"] as? JsonPrimitive)?.contentOrNull
+        val text = type == "SendInputString" || type == "SendInputEnd"
+        val digit = type == "SendRemoteKey" && command?.matches(Regex("KEY_[0-9]")) == true
+        if (!text && !digit) return
+        record("OUT (socket attempt)", raw, keyboard = text)
     }
 
     private fun record(direction: String, raw: String, keyboard: Boolean = false) {

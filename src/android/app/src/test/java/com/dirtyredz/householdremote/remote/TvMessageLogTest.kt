@@ -8,7 +8,7 @@ import org.junit.Test
 class TvMessageLogTest {
     @Test fun redactsNestedIdentityAndKeepsEventEnvelope() {
         val log = TvMessageLog { "now" }
-        log.reset(listOf("Living TV"))
+        log.beginAttempt("living", listOf("Living TV"))
         log.incoming(
             """{"event":"ms.remote.imeUpdate","data":{"token":12345,"ip":"192.168.1.9","name":"Living TV","serial":"ABC123456789","nested":[{"TOKEN":"secret"}],"unknown":"another device"}}"""
         )
@@ -31,7 +31,7 @@ class TvMessageLogTest {
 
     @Test fun outgoingBase64CannotBypassRedactionAndHistoryIsBounded() {
         val log = TvMessageLog { "now" }
-        log.reset(listOf("Living TV"))
+        log.beginAttempt("living", listOf("Living TV"))
         log.outgoing(SamsungProtocol.text("Living TV 192.168.1.9 AA:BB:CC:DD:EE:FF token=secret"))
         val text = log.entries.value.single()
         assertFalse(text.contains("secret"))
@@ -39,12 +39,17 @@ class TvMessageLogTest {
         assertFalse(text.contains("TGl2aW5n"))
         repeat(105) { log.incoming("""{"event":"event$it"}""") }
         assertEquals(100, log.entries.value.size)
-        log.reset(emptyList())
+        log.beginAttempt("bedroom", emptyList())
         assertTrue(log.entries.value.isEmpty())
         log.outgoing(SamsungProtocol.key("KEY_HOME"))
         assertTrue(log.entries.value.isEmpty())
+        log.outgoing(SamsungProtocol.key("KEY_7"))
+        assertTrue(log.entries.value.single().contains("KEY_7"))
         log.outgoing(SamsungProtocol.text("ab"))
-        assertTrue(log.entries.value.single().contains("YWI="))
-        assertTrue(log.entries.value.single().contains("Decoded text: ab"))
+        assertTrue(log.entries.value.last().contains("YWI="))
+        assertTrue(log.entries.value.last().contains("Decoded text: ab"))
+        log.beginAttempt("bedroom", emptyList())
+        assertEquals(3, log.entries.value.size)
+        assertEquals("now — reconnected —", log.entries.value[2])
     }
 }
