@@ -1,67 +1,70 @@
 package com.dirtyredz.householdremote.discovery
 
 import android.content.Context
-import android.net.wifi.WifiManager
 import com.dirtyredz.householdremote.inventory.HouseholdImport
 import com.dirtyredz.householdremote.inventory.Tv
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.SocketTimeoutException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-class SsdpDiscovery(context: Context, private val info: TvProbe) {
-    private val wifi = context.applicationContext.getSystemService(WifiManager::class.java)
+/**
+ * Finds Samsung TVs by SSDP, then confirms each with [info] (:8001/api/v2/). Mirrors the LAN-proven Node
+ * reference in tv-tuneup (`ssdp.mjs`): query `ssdp:all`, keep replies that mention Samsung, resend once
+ * because UDP is lossy. The multicast lock is held from before the first send until the socket is closed.
+ */
+class SsdpDiscovery(
+    private val info: TvProbe,
+    private val lock: () -> MulticastLockHandle,
+    private val openSocket: () -> SsdpSocket,
+    private val windowMs: Long = 4_000,
+    private val resendAfterMs: Long = 700
+) {
+    constructor(context: Context, info: TvProbe) :
+        this(info, { AndroidMulticastLock(context) }, { AndroidSsdpSocket(context) })
+
     suspend fun discover(): List<Tv> = withContext(Dispatchers.IO) {
-        val lock = wifi.createMulticastLock("household-discovery").apply {
-            setReferenceCounted(false)
-        }
         val candidates = linkedSetOf<String>()
-        try {
-            lock.acquire()
-            DatagramSocket().use { socket ->
-                socket.soTimeout = 300
-                val query = (
-                    "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\n" +
-                        "MAN: \"ssdp:discover\"\r\nMX: 2\r\n" +
-                        "ST: urn:samsung.com:device:RemoteControlReceiver:1\r\n\r\n"
-                    ).toByteArray()
-                socket.send(
-                    DatagramPacket(
-                        query,
-                        query.size,
-                        InetAddress.getByName("239.255.255.250"),
-                        1900
-                    )
-                )
-                val deadline = System.nanoTime() + 3_000_000_000L
-                while (System.nanoTime() < deadline && candidates.size < 16) {
+        lock().withLock {
+            openSocket().use { socket ->
+                val start = System.nanoTime()
+                fun elapsedMs() = (System.nanoTime() - start) / 1_000_000
+                var sends = 0
+                while (elapsedMs() < windowMs && candidates.size < MAX_CANDIDATES) {
                     currentCoroutineContext().ensureActive()
-                    val packet = DatagramPacket(ByteArray(8192), 8192)
-                    try {
-                        socket.receive(packet)
-                        val ip = packet.address.hostAddress.orEmpty()
-                        if (HouseholdImport.privateIp(ip)) candidates += ip
-                    } catch (_: SocketTimeoutException) { /* bounded receive */ }
+                    if (sends == 0 || (sends == 1 && elapsedMs() >= resendAfterMs)) {
+                        socket.send(QUERY)
+                        sends++
+                    }
+                    val reply = socket.receive(RECEIVE_SLICE_MS) ?: continue
+                    if (isSamsung(reply) &&
+                        HouseholdImport.privateIp(reply.ip)
+                    ) {
+                        candidates += reply.ip
+                    }
                 }
             }
-        } finally {
-            if (lock.isHeld) lock.release()
         }
         val result = mutableListOf<Tv>()
         for (ip in candidates) {
             currentCoroutineContext().ensureActive()
             try {
                 result += info.probe(ip)
-            } catch (
-                error: Exception
-            ) {
+            } catch (error: Exception) {
                 currentCoroutineContext().ensureActive()
             }
         }
         result.distinctBy { it.mac }
+    }
+
+    private fun isSamsung(reply: SsdpReply) = reply.text.contains("samsung", ignoreCase = true)
+
+    private companion object {
+        const val MAX_CANDIDATES = 16
+        const val RECEIVE_SLICE_MS = 300
+        val QUERY = (
+            "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\n" +
+                "MAN: \"ssdp:discover\"\r\nMX: 2\r\nST: ssdp:all\r\n\r\n"
+            ).toByteArray()
     }
 }
