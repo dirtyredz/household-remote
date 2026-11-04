@@ -2,9 +2,9 @@ package com.dirtyredz.householdremote.power
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import com.dirtyredz.householdremote.discovery.TvProbe
 import com.dirtyredz.householdremote.inventory.Tv
+import com.dirtyredz.householdremote.network.phoneWifiNetwork
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -68,13 +68,7 @@ suspend fun awaitAwake(
 class WakeOnLan(context: Context) : TvWake {
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     override suspend fun wake(mac: String) = withContext(Dispatchers.IO) {
-        val network = connectivity.activeNetwork ?: error("Connect to Wi-Fi first")
-        check(
-            connectivity.getNetworkCapabilities(
-                network
-            )?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ==
-                true
-        ) { "Wake requires active Wi-Fi" }
+        val network = connectivity.phoneWifiNetwork() ?: error("Connect to Wi-Fi first")
         val link = connectivity.getLinkProperties(network) ?: error("No LAN interface")
         val iface = NetworkInterface.getByName(link.interfaceName) ?: error("No LAN interface")
         val address =

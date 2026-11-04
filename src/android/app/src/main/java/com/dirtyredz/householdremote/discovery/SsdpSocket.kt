@@ -2,7 +2,7 @@ package com.dirtyredz.householdremote.discovery
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
+import com.dirtyredz.householdremote.network.phoneWifiNetwork
 import java.net.DatagramPacket
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -32,12 +32,7 @@ class AndroidSsdpSocket(context: Context) : SsdpSocket {
         val connectivity = context.applicationContext.getSystemService(
             ConnectivityManager::class.java
         )
-        val wifi = connectivity.allNetworks.firstOrNull { network ->
-            connectivity.getNetworkCapabilities(network)?.let {
-                it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
-                    !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-            } == true
-        }
+        val wifi = connectivity.phoneWifiNetwork()
         socket.reuseAddress = true
         wifi?.bindSocket(socket)
         socket.bind(InetSocketAddress(0))

@@ -1,5 +1,9 @@
 # Decisions
 
+## ADR: SSDP discovery queries ssdp:all and pins to Wi-Fi (2026-10-26)
+
+Query `ST: ssdp:all`, keep only replies mentioning Samsung, send it twice, and pin the socket to the phone's Wi-Fi network under a held multicast lock. Rejected: the single `ST: urn:samsung.com:device:RemoteControlReceiver:1` query, which found nothing on a real phone; an unbound socket, which sends the multicast out mobile data or a VPN. Wi-Fi selection is one rule shared with Wake-on-LAN: a non-VPN Wi-Fi network, preferring the active one (`network/PhoneWifi`). `WifiMonitor` keeps its own any-Wi-Fi semantics, since it reports availability rather than choosing a socket route.
+
 ## ADR: App letter-grid typing (2026-10-30)
 
 Status: implements the owner grid decision in dk-811e7991; attended acceptance pending. Supersedes the no-IME snapshot fallback and the earlier statement that typing never emits Enter. [Research](research/tizen-app-search-text-input.md) established that Prime Video, Netflix and YouTube draw grids and ignore SendInputString; the owner verified one shared six-column layout and initial focus on a for all three.
