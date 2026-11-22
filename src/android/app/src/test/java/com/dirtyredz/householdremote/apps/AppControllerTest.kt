@@ -67,9 +67,9 @@ class AppControllerTest {
         assertTrue(h.fallbacks.isEmpty())
 
         h.launcher.succeeds = false
-        h.controller.launch(living, TvApp.Plex)
+        h.controller.launch(living, TvApp.Jellyfin)
         runCurrent()
-        assertEquals(listOf(TvApp.Plex), h.fallbacks)
+        assertEquals(listOf(TvApp.Jellyfin), h.fallbacks)
     }
 
     @Test fun staleTvAndBackgroundCannotStartLaunches() = runTest {

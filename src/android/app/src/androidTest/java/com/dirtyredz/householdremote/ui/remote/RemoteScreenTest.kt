@@ -57,7 +57,7 @@ class RemoteScreenTest {
         selected = tv,
         message = "",
         connection = ConnectionStatus(ConnectionState.Connected, "Connected"),
-        apps = mapOf(TvApp.Plex to AppInstall.NotInstalled)
+        apps = mapOf(TvApp.Jellyfin to AppInstall.NotInstalled)
     )
     private var state by mutableStateOf(connected)
     private val keys = mutableListOf<String>()
@@ -299,8 +299,8 @@ class RemoteScreenTest {
         listOf(TvApp.Netflix, TvApp.Prime, TvApp.Disney).forEach { app ->
             rule.onNodeWithTag("app_${app.name}").assertIsEnabled().performClick()
         }
-        rule.onNodeWithTag("app_Plex").assertIsNotEnabled().performClick()
-        rule.onNodeWithContentDescription("Plex, ${text(R.string.app_not_installed)}")
+        rule.onNodeWithTag("app_Jellyfin").assertIsNotEnabled().performClick()
+        rule.onNodeWithContentDescription("Jellyfin, ${text(R.string.app_not_installed)}")
             .assertExists()
         rule.onNodeWithTag("calibrate").assertDoesNotExist()
         rule.onNodeWithTag("cancel_sequence").assertDoesNotExist()

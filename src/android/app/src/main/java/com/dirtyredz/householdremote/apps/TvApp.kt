@@ -2,15 +2,15 @@ package com.dirtyredz.householdremote.apps
 
 /**
  * The four app buttons, launched directly by their Samsung Tizen app ID. The IDs were read
- * from both household TVs (GET /api/v2/applications/<id>, 2026-10-28); older store IDs for
- * Netflix and Plex return 404 there. [launchType] is the `action_type` sent with
- * `ed.apps.launch`.
+ * from the household TVs (GET /api/v2/applications/<id>, 2026-10-28; the Jellyfin id from the
+ * family-room TV 2026-11-22); the older Netflix store ID returns 404 there. [launchType] is
+ * the `action_type` sent with `ed.apps.launch`.
  */
 enum class TvApp(val label: String, val appId: String, val launchType: String = DEEP_LINK) {
     Netflix("Netflix", "3201907018807"),
     Prime("Prime", "3201910019365"),
     Disney("Disney+", "3201901017640"),
-    Plex("Plex", "3201512006963");
+    Jellyfin("Jellyfin", "3202007021208");
 
     companion object {
         const val DEEP_LINK = "DEEP_LINK"

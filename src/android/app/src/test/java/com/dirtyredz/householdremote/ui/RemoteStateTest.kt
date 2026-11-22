@@ -58,11 +58,11 @@ class RemoteStateTest {
         val connected = state(ConnectionState.Connected).copy(
             apps = mapOf(
                 TvApp.Netflix to AppInstall.Installed,
-                TvApp.Plex to AppInstall.NotInstalled
+                TvApp.Jellyfin to AppInstall.NotInstalled
             )
         )
         assertTrue(connected.appEnabled(TvApp.Netflix))
-        assertFalse("the TV said it is not installed", connected.appEnabled(TvApp.Plex))
+        assertFalse("the TV said it is not installed", connected.appEnabled(TvApp.Jellyfin))
         assertEquals(AppInstall.Unknown, connected.install(TvApp.Prime))
         assertTrue("unknown status stays usable", connected.appEnabled(TvApp.Prime))
         assertTrue(

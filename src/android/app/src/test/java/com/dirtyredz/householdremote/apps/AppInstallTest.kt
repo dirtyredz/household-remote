@@ -42,7 +42,7 @@ class AppInstallTest {
                     TvApp.Netflix to AppInstall.Installed,
                     TvApp.Prime to AppInstall.NotInstalled,
                     TvApp.Disney to AppInstall.Unknown,
-                    TvApp.Plex to AppInstall.Installed
+                    TvApp.Jellyfin to AppInstall.Installed
                 ),
                 found
             )

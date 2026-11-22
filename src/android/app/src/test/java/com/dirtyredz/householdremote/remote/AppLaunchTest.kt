@@ -37,14 +37,14 @@ class AppLaunchTest {
             TvApp.Netflix to "3201907018807",
             TvApp.Prime to "3201910019365",
             TvApp.Disney to "3201901017640",
-            TvApp.Plex to "3201512006963"
+            TvApp.Jellyfin to "3202007021208"
         )
         assertEquals(TvApp.entries.toSet(), ids.keys)
         ids.forEach { (app, id) ->
             assertEquals(id, app.appId)
             assertEquals(expected(id), SamsungProtocol.launch(app.appId, app.launchType))
         }
-        assertEquals(listOf("Netflix", "Prime", "Disney+", "Plex"), TvApp.entries.map { it.label })
+        assertEquals(listOf("Netflix", "Prime", "Disney+", "Jellyfin"), TvApp.entries.map { it.label })
     }
 
     @Test fun restLauncherPostsOneEmptyBody() {
@@ -69,7 +69,7 @@ class AppLaunchTest {
             server.enqueue(MockResponse.Builder().code(500).body("false").build())
             server.start()
             val launcher = RestAppLauncher(port = server.port, allowLoopback = true)
-            assertFalse(runBlocking { launcher.launch("127.0.0.1", TvApp.Plex) })
+            assertFalse(runBlocking { launcher.launch("127.0.0.1", TvApp.Jellyfin) })
             launcher.close()
             assertEquals(1, server.requestCount)
         }
@@ -99,12 +99,12 @@ class AppLaunchTest {
         val h = Harness(this)
         h.dispatcher.start()
         assertTrue(h.dispatcher.tap("KEY_HOME"))
-        assertTrue(h.dispatcher.launch(TvApp.Plex))
+        assertTrue(h.dispatcher.launch(TvApp.Jellyfin))
         runCurrent()
         assertEquals(
             listOf(
                 SamsungProtocol.key("KEY_HOME"),
-                SamsungProtocol.launch(TvApp.Plex.appId, TvApp.DEEP_LINK)
+                SamsungProtocol.launch(TvApp.Jellyfin.appId, TvApp.DEEP_LINK)
             ),
             h.sent
         )
