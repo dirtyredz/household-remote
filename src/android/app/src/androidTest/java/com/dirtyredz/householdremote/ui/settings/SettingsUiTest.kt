@@ -6,9 +6,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.dirtyredz.householdremote.BuildConfig
 import com.dirtyredz.householdremote.ui.theme.RemoteTheme
+import com.dirtyredz.householdremote.ui.typing.TypingLayout
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -61,5 +64,22 @@ class SettingsUiTest {
         rule.onNodeWithText("Manual update controls").assertIsDisplayed()
         rule.onNodeWithTag("settings_back").performClick()
         rule.runOnIdle { assertTrue(backed) }
+    }
+
+    @Test fun keyboardLayoutChoiceReportsTheSelectedLayout() {
+        var chosen: TypingLayout? = null
+        rule.setContent {
+            RemoteTheme {
+                SettingsScreen(
+                    onBack = {},
+                    onTypingLayout = { chosen = it },
+                    updateContent = {}
+                )
+            }
+        }
+
+        rule.onNodeWithText("Keyboard layout").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("typing_layout_Jellyfin").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(TypingLayout.Jellyfin, chosen) }
     }
 }

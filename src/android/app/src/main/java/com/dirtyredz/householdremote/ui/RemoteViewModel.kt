@@ -19,11 +19,12 @@ import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.remote.GridPacing
-import com.dirtyredz.householdremote.remote.GridTyping
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
+import com.dirtyredz.householdremote.remote.grid.GridTyping
 import com.dirtyredz.householdremote.security.Credentials
 import com.dirtyredz.householdremote.ui.typing.TypingInput
+import com.dirtyredz.householdremote.ui.typing.TypingLayout
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -65,14 +66,17 @@ class RemoteViewModel(
     dispatcherFactory: KeyDispatcherFactory,
     powerFactory: PowerControllerFactory,
     initialGridDelayMs: Long = GridPacing.DEFAULT_MS,
-    private val saveGridDelay: (Long) -> Unit = {}
+    private val saveGridDelay: (Long) -> Unit = {},
+    initialTypingLayout: TypingLayout = TypingLayout.Shared,
+    private val saveTypingLayout: (TypingLayout) -> Unit = {}
 ) : ViewModel() {
     private var household = repository.load()
     private val mutable = MutableStateFlow(
         RemoteState(
             household.tvs,
             household.tvs.find { it.id == household.selected },
-            gridDelayMs = GridPacing.coerce(initialGridDelayMs)
+            gridDelayMs = GridPacing.coerce(initialGridDelayMs),
+            typingLayout = initialTypingLayout
         )
     )
     val state = mutable.asStateFlow()
@@ -142,7 +146,11 @@ class RemoteViewModel(
         )
         typing = TypingInput(
             dispatcher::text,
-            GridTyping(dispatcher::grid, session.messages::ignoredGridCharacter),
+            GridTyping(
+                dispatcher::grid,
+                session.messages::ignoredGridCharacter,
+                state.value.typingLayout.keyboard
+            ),
             dispatcher::discardGrid
         )
         apps = AppController(
@@ -181,6 +189,15 @@ class RemoteViewModel(
         val delayMs = dispatcher.setGridDelay(value)
         updateState { it.copy(gridDelayMs = delayMs) }
         saveGridDelay(delayMs)
+    }
+
+    /** A different TV keyboard ends the current typing generation and its pending presses. */
+    fun setTypingLayout(layout: TypingLayout) {
+        if (layout == state.value.typingLayout) return
+        clearKeyboardIntent()
+        typing.useLayout(layout)
+        updateState { it.copy(typingLayout = layout) }
+        saveTypingLayout(layout)
     }
 
     fun openKeyboard() {
@@ -332,7 +349,9 @@ class RemoteViewModel(
 
     fun launch(app: TvApp) {
         val current = state.value
-        if (current.appEnabled(app)) current.selected?.let { apps.launch(it, app) }
+        if (!current.appEnabled(app)) return
+        setTypingLayout(TypingLayout.forApp(app))
+        current.selected?.let { apps.launch(it, app) }
     }
 
     /** One power activation; intent is decided from the current session and off intent. */

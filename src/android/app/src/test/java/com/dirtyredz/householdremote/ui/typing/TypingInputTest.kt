@@ -1,8 +1,9 @@
 package com.dirtyredz.householdremote.ui.typing
 
-import com.dirtyredz.householdremote.remote.GridTyping
+import com.dirtyredz.householdremote.apps.TvApp
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.SamsungProtocol
+import com.dirtyredz.householdremote.remote.grid.GridTyping
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -13,6 +14,39 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TypingInputTest {
+    @Test fun layoutChangeEndsTheGenerationAndReopenUsesTheNewGrid() {
+        val gridKeys = mutableListOf<String>()
+        var discarded = 0
+        val input = TypingInput(
+            { true },
+            GridTyping({ presses -> gridKeys.addAll(presses.map { it.key }) }),
+            { discarded++ }
+        )
+        input.open(tvImeActive = false)
+        input.changed("h")
+        assertEquals(listOf("KEY_DOWN", "KEY_RIGHT", "KEY_ENTER"), gridKeys)
+        val before = discarded
+
+        input.useLayout(TypingLayout.Jellyfin)
+        assertTrue(discarded > before)
+        assertFalse(input.changed("hi"))
+
+        gridKeys.clear()
+        input.open(tvImeActive = false)
+        input.changed("h")
+        assertEquals(listOf("KEY_DOWN", "KEY_ENTER"), gridKeys)
+    }
+
+    @Test fun appButtonsChooseTheirLayoutAndUnknownSavedNamesFallBack() {
+        assertEquals(TypingLayout.Jellyfin, TypingLayout.forApp(TvApp.Jellyfin))
+        listOf(TvApp.Netflix, TvApp.Prime, TvApp.Disney).forEach {
+            assertEquals(TypingLayout.Shared, TypingLayout.forApp(it))
+        }
+        assertEquals(TypingLayout.Jellyfin, TypingLayout.parse("Jellyfin"))
+        assertEquals(TypingLayout.Shared, TypingLayout.parse(null))
+        assertEquals(TypingLayout.Shared, TypingLayout.parse("Plex"))
+    }
+
     @Test fun imeStartDiscardsGridAndPreservesFullDraftSnapshots() {
         val snapshots = mutableListOf<String>()
         val gridKeys = mutableListOf<String>()

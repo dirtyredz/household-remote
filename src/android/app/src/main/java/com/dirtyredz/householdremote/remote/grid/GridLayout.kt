@@ -1,7 +1,16 @@
-package com.dirtyredz.householdremote.remote
+package com.dirtyredz.householdremote.remote.grid
 
-/** Column ranges describe wide keys. Vertical exits always use the left column of a key. */
-data class GridCell(val label: String, val row: Int, val columns: IntRange)
+/**
+ * Column ranges describe wide keys. Vertical exits always use the left column of a key. A
+ * cell with [transit] false is only ever a path's start or end, never a waypoint, so routes
+ * do not lean on its unverified landings.
+ */
+data class GridCell(
+    val label: String,
+    val row: Int,
+    val columns: IntRange,
+    val transit: Boolean = true
+)
 
 class GridLayout(val cells: List<GridCell>) {
     fun move(from: GridCell, key: String): GridCell? = when (key) {
@@ -18,6 +27,8 @@ class GridLayout(val cells: List<GridCell>) {
         else -> null
     }
 
+    fun cell(label: String): GridCell = cells.first { it.label == label }
+
     /** Breadth-first search on the directed grid, with no edge-crossing moves. */
     fun path(from: GridCell, to: GridCell): List<String> {
         require(from in cells && to in cells)
@@ -27,6 +38,7 @@ class GridLayout(val cells: List<GridCell>) {
         while (pending.isNotEmpty()) {
             val (cell, keys) = pending.removeFirst()
             if (cell == to) return keys
+            if (cell != from && !cell.transit) continue
             for (key in directions) {
                 val next = move(cell, key) ?: continue
                 if (seen.add(next)) pending.add(next to keys + key)

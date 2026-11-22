@@ -6,6 +6,7 @@ import com.dirtyredz.householdremote.inventory.Tv
 import com.dirtyredz.householdremote.power.PowerState
 import com.dirtyredz.householdremote.remote.ConnectionStatus
 import com.dirtyredz.householdremote.remote.GridPacing
+import com.dirtyredz.householdremote.ui.typing.TypingLayout
 
 /**
  * Immutable screen state. [connection], [power] and [onWifi] are independent typed fields;
@@ -22,7 +23,9 @@ data class RemoteState(
     /** The phone has an active Wi-Fi network (the TVs are only reachable over the LAN). */
     val onWifi: Boolean = true,
     val keyboardOpen: Boolean = false,
-    val gridDelayMs: Long = GridPacing.DEFAULT_MS
+    val gridDelayMs: Long = GridPacing.DEFAULT_MS,
+    /** Which TV letter grid no-IME typing walks; persisted with the grid delay. */
+    val typingLayout: TypingLayout = TypingLayout.Shared
 ) {
     val ready: Boolean get() = connection.ready
 

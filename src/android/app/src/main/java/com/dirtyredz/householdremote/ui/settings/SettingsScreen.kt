@@ -29,6 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dirtyredz.householdremote.BuildConfig
 import com.dirtyredz.householdremote.remote.GridPacing
+import com.dirtyredz.householdremote.ui.typing.TypingLayout
 import kotlinx.coroutines.flow.StateFlow
 
 /** Full-screen settings surface, separate from the remote's quick actions. */
@@ -37,6 +38,8 @@ fun SettingsDialog(
     messages: StateFlow<List<String>>,
     gridDelayMs: Long,
     onGridDelay: (Long) -> Unit,
+    typingLayout: TypingLayout,
+    onTypingLayout: (TypingLayout) -> Unit,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -51,7 +54,9 @@ fun SettingsDialog(
                 onBack = onDismiss,
                 onMessages = { showMessages = true },
                 gridDelayMs = gridDelayMs,
-                onGridDelay = onGridDelay
+                onGridDelay = onGridDelay,
+                typingLayout = typingLayout,
+                onTypingLayout = onTypingLayout
             )
         }
     }
@@ -64,6 +69,8 @@ internal fun SettingsScreen(
     onMessages: () -> Unit = {},
     gridDelayMs: Long = GridPacing.DEFAULT_MS,
     onGridDelay: (Long) -> Unit = {},
+    typingLayout: TypingLayout = TypingLayout.Shared,
+    onTypingLayout: (TypingLayout) -> Unit = {},
     updateContent: @Composable () -> Unit = { UpdateControl() }
 ) {
     BackHandler(onBack = onBack)
@@ -100,6 +107,7 @@ internal fun SettingsScreen(
                         ((GridPacing.MAX_MS - GridPacing.MIN_MS) / GridPacing.STEP_MS).toInt() - 1
                 )
                 Text("Open app search fresh with the highlight on a before opening Keyboard.")
+                TypingLayoutControl(typingLayout, onTypingLayout)
                 Text("App updates", style = MaterialTheme.typography.titleLarge)
                 HorizontalDivider(Modifier.fillMaxWidth())
                 Text("Current version ${BuildConfig.VERSION_NAME}")

@@ -17,6 +17,7 @@ import com.dirtyredz.householdremote.remote.GridPacingSettings
 import com.dirtyredz.householdremote.remote.KeyDispatcher
 import com.dirtyredz.householdremote.remote.RemoteSession
 import com.dirtyredz.householdremote.security.TokenStore
+import com.dirtyredz.householdremote.ui.typing.TypingLayoutSettings
 
 class RemoteViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -26,9 +27,12 @@ class RemoteViewModelFactory(private val application: Application) : ViewModelPr
         val wake = WakeOnLan(application)
         LegacyShortcuts.discard(application)
         val gridPacing = GridPacingSettings(application)
+        val typingLayout = TypingLayoutSettings(application)
         return RemoteViewModel(
             initialGridDelayMs = gridPacing.load(),
             saveGridDelay = gridPacing::save,
+            initialTypingLayout = typingLayout.load(),
+            saveTypingLayout = typingLayout::save,
             repository = TvRepository(application),
             probe = probe,
             appProbe = AppInstallClient(),

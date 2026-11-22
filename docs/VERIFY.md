@@ -34,6 +34,8 @@ These mount pure composables (`ui/remote`) with fake state and recording callbac
 
 - Grid typing (dk-811e7991): at Settings' default **400 ms**, open search fresh (highlight on a) in Prime Video, Netflix and YouTube separately, then tap Keyboard and type `hon`. Watch every arrow/OK and confirm exactly `hon` appears. Repeat with `honey i`, space and deletions, including the verified Up landing from space/backspace. Check uppercase, fast typing, digit-only Netflix PIN entry, and a slower Settings value. Close the phone keyboard mid-sequence: remaining grid presses must stop; reopen app search fresh before reopening Keyboard. Repeat cancellation with background, TV switch and disconnect/reconnect; no stale presses or automatic keyboard reopening. TV messages must show each grid key with its target. No automated check contacts a TV.
 
+- Jellyfin grid: press the Jellyfin app button (Settings > Keyboard layout now reads Jellyfin), open its search fresh with the highlight on a, tap Keyboard and type `a b`, then `Ab1_z`, then delete back to empty. Watch the space/Up landing, the !#1→ABC and ABC→!#1 landings, and whether one shift press capitalises exactly one letter; record every mismatch against docs/GOTCHAS.md's unverified Jellyfin list. Switching layout in Settings closes the phone keyboard.
+
 Record phone, model and build SHA in the Docket item.
 
 - Power is immediately discoverable; the TV name and short connection status share one header line without overlap or status wrapping (a long name ellipsizes first); primary controls are readable without setup clutter; dark startup and system bars.

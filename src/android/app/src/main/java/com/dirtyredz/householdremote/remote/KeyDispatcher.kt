@@ -1,6 +1,7 @@
 package com.dirtyredz.householdremote.remote
 
 import com.dirtyredz.householdremote.apps.TvApp
+import com.dirtyredz.householdremote.remote.grid.GridPress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel

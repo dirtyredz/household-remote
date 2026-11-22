@@ -1,4 +1,4 @@
-package com.dirtyredz.householdremote.remote
+package com.dirtyredz.householdremote.remote.grid
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

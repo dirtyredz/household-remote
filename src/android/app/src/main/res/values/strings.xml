@@ -46,4 +46,9 @@
     <!-- App buttons -->
     <string name="app_not_installed">not installed on this TV</string>
     <string name="tv_keyboard">Keyboard</string>
+
+    <!-- Settings: which TV keyboard grid phone typing walks -->
+    <string name="typing_layout_title">Keyboard layout</string>
+    <string name="typing_layout_shared">Shared (Prime Video, Netflix, YouTube)</string>
+    <string name="typing_layout_jellyfin">Jellyfin</string>
 </resources>

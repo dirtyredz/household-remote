@@ -105,6 +105,8 @@ fun RemoteApp(providedModel: RemoteViewModel? = null) {
             messages = model.tvMessages,
             gridDelayMs = state.gridDelayMs,
             onGridDelay = model::setGridDelay,
+            typingLayout = state.typingLayout,
+            onTypingLayout = model::setTypingLayout,
             onDismiss = ::close
         )
 

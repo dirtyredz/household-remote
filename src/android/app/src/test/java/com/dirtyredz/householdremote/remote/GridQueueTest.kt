@@ -1,5 +1,7 @@
 package com.dirtyredz.householdremote.remote
 
+import com.dirtyredz.householdremote.remote.grid.GridPress
+import com.dirtyredz.householdremote.remote.grid.GridTyping
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle

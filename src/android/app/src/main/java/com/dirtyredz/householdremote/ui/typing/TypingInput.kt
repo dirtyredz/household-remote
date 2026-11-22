@@ -1,6 +1,6 @@
 package com.dirtyredz.householdremote.ui.typing
 
-import com.dirtyredz.householdremote.remote.GridTyping
+import com.dirtyredz.householdremote.remote.grid.GridTyping
 
 /** Routes one keyboard generation according to whether this TV attempt opened its IME. */
 internal class TypingInput(
@@ -17,6 +17,12 @@ internal class TypingInput(
         opened = true
         this.tvImeActive = tvImeActive
         if (!tvImeActive) grid.open()
+    }
+
+    /** A different TV keyboard ends this generation; typing resumes only after [open]. */
+    fun useLayout(layout: TypingLayout) {
+        reset()
+        grid.use(layout.keyboard)
     }
 
     fun tvImeStarted() {
