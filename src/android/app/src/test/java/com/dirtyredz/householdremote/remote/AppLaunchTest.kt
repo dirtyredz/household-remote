@@ -44,7 +44,12 @@ class AppLaunchTest {
             assertEquals(id, app.appId)
             assertEquals(expected(id), SamsungProtocol.launch(app.appId, app.launchType))
         }
-        assertEquals(listOf("Netflix", "Prime", "Disney+", "Jellyfin"), TvApp.entries.map { it.label })
+        assertEquals(
+            listOf("Netflix", "Prime", "Disney+", "Jellyfin"),
+            TvApp.entries.map {
+                it.label
+            }
+        )
     }
 
     @Test fun restLauncherPostsOneEmptyBody() {
