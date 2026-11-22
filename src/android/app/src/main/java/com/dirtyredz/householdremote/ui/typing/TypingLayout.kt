@@ -6,12 +6,15 @@ import com.dirtyredz.householdremote.remote.grid.GridKeyboard
 import com.dirtyredz.householdremote.remote.grid.JellyfinGridLayout
 
 /** Which TV letter grid no-IME typing walks. The phone cannot see the TV's foreground app. */
-enum class TypingLayout(val keyboard: GridKeyboard) {
+enum class TypingLayout(val keyboard: GridKeyboard, val followsTvIme: Boolean) {
     /** The owner-verified Prime Video / Netflix / YouTube grid. */
-    Shared(GridKeyboard.household),
+    Shared(GridKeyboard.household, followsTvIme = true),
 
-    /** Jellyfin's Samsung-style keyboard: letters, shift and symbols page 1/2. */
-    Jellyfin(JellyfinGridLayout.keyboard);
+    /**
+     * Jellyfin's Samsung-style keyboard: letters, shift and symbols page 1/2. Its fields emit
+     * imeStart but text-send fails there, so TV imeStart/imeEnd are ignored and grid stays.
+     */
+    Jellyfin(JellyfinGridLayout.keyboard, followsTvIme = false);
 
     companion object {
         /** The layout an app button implies; the owner can still override it in Settings. */

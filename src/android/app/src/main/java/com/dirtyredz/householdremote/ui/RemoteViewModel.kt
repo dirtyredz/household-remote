@@ -208,6 +208,7 @@ class RemoteViewModel(
     }
 
     private fun tvImeChanged(active: Boolean) {
+        if (!state.value.typingLayout.followsTvIme) return
         if (!active) {
             dismissKeyboard()
             return

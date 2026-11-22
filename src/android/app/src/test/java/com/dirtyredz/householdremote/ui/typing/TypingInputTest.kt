@@ -47,6 +47,28 @@ class TypingInputTest {
         assertEquals(TypingLayout.Shared, TypingLayout.parse("Plex"))
     }
 
+    @Test fun onlyTheSharedLayoutFollowsTvImeEvents() {
+        assertTrue(TypingLayout.Shared.followsTvIme)
+        assertFalse(TypingLayout.Jellyfin.followsTvIme)
+    }
+
+    @Test fun jellyfinLayoutKeepsGridTypingWhenTheTvImeIsIgnored() {
+        val snapshots = mutableListOf<String>()
+        val gridKeys = mutableListOf<String>()
+        val input = TypingInput(
+            { snapshots.add(it) },
+            GridTyping({ presses -> gridKeys.addAll(presses.map { it.key }) }),
+            { gridKeys.clear() }
+        )
+        input.useLayout(TypingLayout.Jellyfin)
+        input.open(tvImeActive = false)
+        // RemoteViewModel.tvImeChanged returns early for this layout, so tvImeStarted never runs.
+        if (TypingLayout.Jellyfin.followsTvIme) input.tvImeStarted()
+        input.changed("h")
+        assertEquals(listOf("KEY_DOWN", "KEY_ENTER"), gridKeys)
+        assertTrue(snapshots.isEmpty())
+    }
+
     @Test fun imeStartDiscardsGridAndPreservesFullDraftSnapshots() {
         val snapshots = mutableListOf<String>()
         val gridKeys = mutableListOf<String>()
