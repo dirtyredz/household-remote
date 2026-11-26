@@ -15,14 +15,14 @@ Provisioning creates a dedicated PKCS12 key and password in 1Password, removes t
 
 The repository `dirtyredz/household-remote` is public and hosts both source and releases. Owner publishes a version tag here; `.github/workflows/android-release.yml` gates both flavors, builds unsigned APK/AAB, uploads a CI artifact and creates an unsigned draft here. Version codes use that workflow's monotonically increasing run number; retries retain the same code. Do not reset the workflow counter or publish older runs after newer ones.
 
-On a clean checkout of the exact release commit, run:
+Signing is unattended through the vault profile `household-remote`: the items `Household Remote signing key` and `Household Remote signing password` live in the `Agents` vault. Once the tag's CI run succeeds, call the `sign_android_release_profile` MCP tool with `{profile: "household-remote", tag: "v0.x.y", runId: <successful-run-id>}`. The broker verifies the tag, checks out the commit by SHA, requires the certificate pin to match, reads the key and password through the service account (no Windows Hello prompt) and runs the publish script. The attended fallback, on a clean checkout of the exact release commit, is:
 
 ```powershell
 powershell -NoProfile -File scripts/release/sign-and-publish.ps1 -DryRun
 powershell -NoProfile -File scripts/release/sign-and-publish.ps1 -Tag v0.1.0 -RunId <successful-run-id> -KeyDocument <private-document-id> -PasswordReference op://Personal/<private-password-id>/password -AndroidSdk <installed-sdk>
 ```
 
-The script checks source repository, workflow path/event/success, tag commit, clean local commit, CI artifact versus unsigned draft provenance and file hashes. It verifies APK package/version, signs both APKs/AABs locally, verifies the permanent signer, removes the verified unsigned draft assets, uploads only four signed packages plus `update.json` and checksums to that same **draft**, downloads and compares every byte digest, then publishes last. Published releases are never overwritten. Failure leaves the draft unpublished. If replacement has started, inspect the draft and restore the exact unsigned CI assets before retrying; unknown assets are rejected. No unattended signing or Worker credentials exist.
+Either path checks source repository, workflow path/event/success, tag commit, clean local commit, CI artifact versus unsigned draft provenance and file hashes. It verifies APK package/version, signs both APKs/AABs locally, verifies the permanent signer, removes the verified unsigned draft assets, uploads only four signed packages plus `update.json` and checksums to that same **draft**, downloads and compares every byte digest, then publishes last. Published releases are never overwritten. Failure leaves the draft unpublished. If replacement has started, inspect the draft and restore the exact unsigned CI assets before retrying; unknown assets are rejected. No Worker credentials exist.
 
 The app manually reads the public latest release, validates flavor/package/version and bounded digest-checked download, compares the archive's signer with its installed signer, and delegates installation to Android. Unknown-source permission denial leaves the update pending; retry the install button after granting it. No login or separate release repository is needed.
 
