@@ -2,7 +2,7 @@
 
 Build with the fast gate in [VERIFY.md](VERIFY.md). `src/android/app/build/outputs/apk/{remote,owner}/debug/` contains installable debug APKs; corresponding `release/` folders contain unsigned APKs. AABs are under `outputs/bundle/{remote,owner}Release/`. Debug packages have `.debug` suffix and do not accept production updates. Remote and owner are separate packages and keep separate phone credentials.
 
-## Attended owner steps
+## Owner steps (provisioning attended; signing unattended)
 
 No production key exists yet. Do not use disposable smoke output. With installed `op`, `gh`, JDK and Android SDK build-tools 35.0.0:
 
